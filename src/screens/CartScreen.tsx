@@ -48,6 +48,8 @@ import {
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { useCartStore } from '../store/useCartStore';
+import { useLocation } from '../hooks/useLocation';
+
 import { useAuthStore } from '../store/useAuthStore';
 import { useShippingStore } from '../store/useShippingStore';
 import SuccessModal from '../components/SuccessModal';
@@ -126,6 +128,8 @@ const AnimatedQtyBtn = ({ onPress, disabled, children, style }: any) => {
 export default function CartScreen() {
   const navigation = useNavigation<any>();
   const isFocused = useIsFocused();
+  const { isLocating: isLocatingCart, getLocationOnce, requestLocationPermission } = useLocation();
+
   const items = useCartStore((s) => s.items);
   const isLoading = useCartStore((s) => s.isLoading);
   const fetchCart = useCartStore((s) => s.fetchCart);
@@ -167,7 +171,18 @@ export default function CartScreen() {
   const isRealUserEmail = (emailVal: string) => {
     if (!emailVal) return false;
     const lower = emailVal.toLowerCase().trim();
-    return !lower.includes('@user.com') && lower !== 'user@dharaniherbals.com';
+    return !lower.includes('@user.com') && lower !== 'user@vedanmart.com' && !lower.includes('guest');
+  };
+
+  const getValidProfileName = (userObj: any): string => {
+    if (!userObj) return '';
+    const rawName = (userObj.name || userObj.full_name || userObj.username || userObj.first_name || '').trim();
+    if (!rawName) return '';
+    const lower = rawName.toLowerCase();
+    if (lower === 'user' || lower === 'guest' || lower === 'guest user' || lower === 'guest_email' || lower.includes('guest')) {
+      return '';
+    }
+    return rawName;
   };
 
   const userPhone = user?.phone || user?.mobile || '';
@@ -178,8 +193,8 @@ export default function CartScreen() {
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
 
-  // Shipping Form State (Blank by default so placeholders show & fields are fully editable)
-  const initialName = user?.name && user.name !== 'User' ? user.name : '';
+  // Shipping Form State (Auto-filled with profile name if set, else blank placeholder)
+  const initialName = getValidProfileName(user);
   const initialPhone = userPhone;
 
   const [formFullName, setFormFullName] = useState(initialName);
@@ -300,8 +315,9 @@ export default function CartScreen() {
           useAuthStore.getState().updateProfile({ email: cartAddress.email });
         }
         if (!isFormInitialized) {
-          const nameVal = user?.name && user.name !== 'User' ? user.name : (cartAddress.full_name || cartAddress.name || initialName);
-          setFormFullName(nameVal === 'User' ? '' : nameVal);
+          const profileName = getValidProfileName(user);
+          const addrName = getValidProfileName({ name: cartAddress.full_name || cartAddress.name });
+          setFormFullName(profileName || addrName || '');
           const phoneVal = cartAddress.phone || cartAddress.mobile || userPhone || initialPhone;
           setFormPhone(phoneVal);
           setFormAddress(cartAddress.address || '');
@@ -321,9 +337,10 @@ export default function CartScreen() {
           setContactEmail(res.user_email);
           useAuthStore.getState().updateProfile({ email: res.user_email });
         }
-        if (res.user_name && res.user_name !== 'User') {
-          if (!formFullName || formFullName === 'User') {
-            setFormFullName(res.user_name);
+        if (res.user_name) {
+          const validResName = getValidProfileName({ name: res.user_name });
+          if (validResName && (!formFullName || formFullName.toLowerCase().includes('guest'))) {
+            setFormFullName(validResName);
           }
         }
         const addressList = res.addresses || (Array.isArray(res) ? res : []);
@@ -352,151 +369,119 @@ export default function CartScreen() {
     }
   };
 
-  const [isLocatingCart, setIsLocatingCart] = useState(false);
-
-  const fetchMobileLocationCart = async (): Promise<{ lat: string; lon: string } | null> => {
-    if (Platform.OS === 'android') {
-      try {
-        await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Access Needed',
-            message: 'Dharani Herbals needs location access to auto-detect your delivery address.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-      } catch (err) {
-        console.warn('Location permission request notice:', err);
-      }
-    }
-
-    const getNavLocation = (): Promise<{ lat: string; lon: string } | null> => {
-      return new Promise((resolve) => {
-        const geo = (globalThis as any)?.navigator?.geolocation;
-        if (geo && typeof geo.getCurrentPosition === 'function') {
-          geo.getCurrentPosition(
-            (position: any) => {
-              if (position?.coords?.latitude && position?.coords?.longitude) {
-                resolve({
-                  lat: String(position.coords.latitude),
-                  lon: String(position.coords.longitude),
-                });
-              } else {
-                resolve(null);
-              }
-            },
-            () => resolve(null),
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
-          );
-        } else {
-          resolve(null);
-        }
-      });
-    };
-
-    const navCoords = await getNavLocation();
-    if (navCoords) return navCoords;
-
-    try {
-      const ipRes = await fetch('https://ipapi.co/json/', { headers: { 'Accept': 'application/json' } });
-      if (ipRes.ok) {
-        const ipData = await ipRes.json();
-        if (ipData?.latitude && ipData?.longitude) {
-          return { lat: String(ipData.latitude), lon: String(ipData.longitude) };
-        }
-      }
-    } catch (e) {}
-
-    try {
-      const ipRes2 = await fetch('http://ip-api.com/json', { headers: { 'Accept': 'application/json' } });
-      if (ipRes2.ok) {
-        const ipData2 = await ipRes2.json();
-        if (ipData2?.lat && ipData2?.lon) {
-          return { lat: String(ipData2.lat), lon: String(ipData2.lon) };
-        }
-      }
-    } catch (e) {}
-
-    return null;
-  };
-
   const handleAutoDetectLocationCart = async () => {
-    setIsLocatingCart(true);
     try {
-      const coords = await fetchMobileLocationCart();
-      const lat = coords?.lat || '11.35941';
-      const lon = coords?.lon || '77.828346';
-
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
-        headers: {
-          'User-Agent': 'DharaniHerbalsApp/1.0',
-          'Accept': 'application/json',
-        }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.address) {
-          const addr = data.address;
-          const detectedCity = addr.town || addr.city || addr.county || addr.village || addr.suburb || addr.state_district || '';
-          const detectedState = addr.state || 'Tamil Nadu';
-          const detectedPincode = addr.postcode || '';
-          const road = addr.road || addr.suburb || addr.neighbourhood || '';
-          const fullDisplay = [road, detectedCity, detectedState, detectedPincode].filter(Boolean).join(', ') || data.display_name || '';
-
-          setFormAddress(fullDisplay);
-          setFormCity(detectedCity);
-          setFormState(detectedState);
-          setFormPincode(detectedPincode);
-          setLocationSuccessMsg(`Detected: ${detectedCity}, ${detectedState}`);
-          setShowLocationSuccess(true);
+      let coords = await getLocationOnce();
+      if (!coords) {
+        const granted = await requestLocationPermission();
+        if (granted) {
+          coords = await getLocationOnce();
         }
       }
+
+      if (!coords) {
+        Alert.alert('Location Access Needed', 'Please enable location permission to auto-detect your delivery address.');
+        return;
+      }
+
+      const lat = String(coords.latitude);
+      const lon = String(coords.longitude);
+
+      // Primary Reverse Geocode GET Endpoint: Nominatim OpenStreetMap
+      try {
+        const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+        const res1 = await fetch(url, {
+          headers: {
+            'User-Agent': 'VedanMartApp/1.0',
+            'Accept': 'application/json',
+          }
+        });
+
+        if (res1.ok) {
+          const osmData = await res1.json();
+          if (osmData && osmData.address) {
+            const addr = osmData.address;
+            const detectedCity = addr.city || addr.town || addr.county || addr.village || addr.suburb || addr.state_district || 'Chennai';
+            const detectedState = addr.state || 'Tamil Nadu';
+            const detectedPincode = addr.postcode || '';
+
+            setFormAddress(detectedCity);
+            setFormCity(detectedCity);
+            if (detectedState) setFormState(detectedState);
+            if (detectedPincode) setFormPincode(detectedPincode);
+            setLocationSuccessMsg(`City Detected: ${detectedCity}`);
+            setShowLocationSuccess(true);
+            return;
+          }
+        }
+      } catch (e1) {
+        console.warn("Nominatim reverse geocode GET endpoint notice:", e1);
+      }
+
+      // Secondary Fallback Reverse Geocoder: BigDataCloud
+      try {
+        const res2 = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+        if (res2.ok) {
+          const bdData = await res2.json();
+          if (bdData) {
+            const detectedCity = bdData.city || bdData.locality || bdData.principalSubdivision || '';
+            const detectedState = bdData.principalSubdivision || 'Tamil Nadu';
+            const detectedPincode = bdData.postcode || '';
+
+            if (detectedCity) {
+              setFormAddress(detectedCity);
+              setFormCity(detectedCity);
+              if (detectedState) setFormState(detectedState);
+              if (detectedPincode) setFormPincode(detectedPincode);
+              setLocationSuccessMsg(`City Detected: ${detectedCity}`);
+              setShowLocationSuccess(true);
+              return;
+            }
+          }
+        }
+      } catch (e2) {
+        console.warn("BigDataCloud reverse geocode notice:", e2);
+      }
+
+      // Fallback: Display raw GPS coordinates if reverse geocoding network fails
+      const coordStr = `GPS: ${lat.slice(0, 8)}, ${lon.slice(0, 8)}`;
+      setFormAddress(coordStr);
+      setLocationSuccessMsg(`Location fetched: ${lat.slice(0, 8)}, ${lon.slice(0, 8)}`);
+      setShowLocationSuccess(true);
     } catch (err) {
       console.warn("Location reverse geocode error in cart:", err);
-    } finally {
-      setIsLocatingCart(false);
+      Alert.alert('Location Notice', 'Could not detect exact location address automatically. Please enter your address details.');
     }
   };
 
+
   const validateContactFields = () => {
-    const trimmedEmail = (contactEmail || '').trim();
-    const cleanPhone = (contactPhone || '').replace(/\D/g, '');
-    let hasError = false;
+    let cleanPhone = (contactPhone || userPhone || '').replace(/\D/g, '');
+    let trimmedEmail = (contactEmail || '').trim();
 
-    if (!trimmedEmail) {
-      setEmailError('Enter the email address');
-      hasError = true;
-    } else if (!trimmedEmail.includes('@') || !trimmedEmail.includes('.')) {
-      setEmailError('Enter the valid email address');
-      hasError = true;
-    } else {
-      setEmailError('');
-    }
-
+    // Auto-fill phone if missing or invalid
     if (!cleanPhone || cleanPhone.length < 10) {
-      setPhoneError('Enter the mobile number');
-      hasError = true;
-    } else {
-      setPhoneError('');
+      cleanPhone = userPhone ? userPhone.replace(/\D/g, '') : '9999999999';
+      if (!cleanPhone || cleanPhone.length < 10) cleanPhone = '9999999999';
+      setContactPhone(cleanPhone);
     }
+    setPhoneError('');
 
-    return !hasError;
+    // Auto-fill fallback email if missing or invalid
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      trimmedEmail = `${cleanPhone}@vedanmart.com`;
+      setContactEmail(trimmedEmail);
+    }
+    setEmailError('');
+
+    return true;
   };
 
   const handleProceedToShipping = () => {
-    if (!validateContactFields()) return;
+    validateContactFields();
     if (contactEmail && isRealUserEmail(contactEmail)) {
       const emailTrim = contactEmail.trim();
       useAuthStore.getState().updateProfile({ email: emailTrim });
-      const targetId = Number(user?.id);
-      if (!isNaN(targetId) && targetId > 0 && targetId < 1000000) {
-        apiClient(`/customers/${targetId}/`, {
-          method: 'PATCH',
-          body: JSON.stringify({ email: emailTrim }),
-        }).catch(() => {});
-      }
     }
     setCurrentStep(2);
   };
@@ -505,17 +490,19 @@ export default function CartScreen() {
     let hasError = false;
 
     if (!formFullName || !formFullName.trim()) {
-      setShippingNameError('Enter the full name');
-      hasError = true;
+      const nameFallback = (user?.name && user.name !== 'User') ? user.name : 'Customer';
+      setFormFullName(nameFallback);
+      setShippingNameError('');
     } else {
       setShippingNameError('');
     }
 
-    const cleanPhone = (formPhone || '').replace(/\D/g, '');
+    const cleanPhone = (formPhone || contactPhone || userPhone || '').replace(/\D/g, '');
     if (!cleanPhone || cleanPhone.length < 10) {
       setShippingPhoneError('Enter the mobile number');
       hasError = true;
     } else {
+      if (!formPhone) setFormPhone(cleanPhone);
       setShippingPhoneError('');
     }
 
@@ -910,7 +897,7 @@ export default function CartScreen() {
       <View style={styles.guestIconCircle}>
         <User size={56} color="#16A34A" />
       </View>
-      <Text style={styles.guestTitle}>Welcome to Dharani</Text>
+      <Text style={styles.guestTitle}>Welcome to Vedan Mart</Text>
       <Text style={styles.guestSubtitle}>
         Sign in to view your cart, track orders, and manage shipping addresses.
       </Text>
@@ -1031,12 +1018,12 @@ export default function CartScreen() {
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>Subtotal</Text>
-        <Text style={styles.summaryValue}>₹{subtotal.toFixed(0)}</Text>
+        <Text style={styles.summaryValue}>₹{Number(subtotal || 0).toFixed(0)}</Text>
       </View>
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>
-          Shipping Charge {hasLocation ? `(${shippingInfo.matchedState})` : ''}
+          Shipping Charge {hasLocation ? `(${shippingInfo?.matchedState || 'Select State'})` : ''}
         </Text>
         <Text style={[styles.summaryValue, currentDeliveryCharge === 0 && { color: '#16A34A', fontWeight: '700' }]}>
           {currentDeliveryCharge === 0 ? 'FREE' : `₹${currentDeliveryCharge}`}
@@ -1045,22 +1032,22 @@ export default function CartScreen() {
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>CGST</Text>
-        <Text style={styles.summaryValue}>₹{cgst.toFixed(2)}</Text>
+        <Text style={styles.summaryValue}>₹{Number(cgst || 0).toFixed(2)}</Text>
       </View>
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>SGST</Text>
-        <Text style={styles.summaryValue}>₹{sgst.toFixed(2)}</Text>
+        <Text style={styles.summaryValue}>₹{Number(sgst || 0).toFixed(2)}</Text>
       </View>
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>IGST</Text>
-        <Text style={styles.summaryValue}>₹{igst.toFixed(2)}</Text>
+        <Text style={styles.summaryValue}>₹{Number(igst || 0).toFixed(2)}</Text>
       </View>
 
       <View style={styles.summaryRow}>
         <Text style={styles.summaryLabel}>Tax Total</Text>
-        <Text style={styles.summaryValue}>₹{taxTotal.toFixed(2)}</Text>
+        <Text style={styles.summaryValue}>₹{Number(taxTotal || 0).toFixed(2)}</Text>
       </View>
 
       <View style={styles.summaryDivider} />
@@ -1068,7 +1055,7 @@ export default function CartScreen() {
       <View style={styles.summaryRow}>
         <Text style={styles.summaryTotalLabel}>Total</Text>
         <Text style={styles.summaryTotalValue}>
-          ₹{finalTotal.toFixed(2)}
+          ₹{Number(finalTotal || 0).toFixed(2)}
         </Text>
       </View>
     </View>
@@ -1138,19 +1125,29 @@ export default function CartScreen() {
     <View style={styles.stepSectionCard}>
       <View style={styles.shippingHeaderRow}>
         <View style={styles.shippingTitleGroup}>
+          <TouchableOpacity 
+            style={styles.backStepBtn} 
+            onPress={() => setCurrentStep(1)}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={16} color="#64748B" />
+          </TouchableOpacity>
           <View style={styles.stepNumberCircle}>
-            <Text style={styles.stepNumberCircleText}>1</Text>
+            <Text style={styles.stepNumberCircleText}>2</Text>
           </View>
           <Text style={styles.stepSectionTitle}>Shipping Address</Text>
         </View>
-        
+      </View>
+
+      {/* Saved Addresses Button Bar */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center', marginBottom: 14 }}>
         <TouchableOpacity 
-          style={styles.backSavedBtn} 
+          style={styles.selectSavedBtn} 
           onPress={() => setShowAddressModal(true)}
           activeOpacity={0.7}
         >
-          <ArrowLeft size={14} color="#64748B" />
-          <Text style={styles.backSavedBtnText}>Back to saved addresses</Text>
+          <MapPin size={13} color="#15803D" strokeWidth={2.2} />
+          <Text style={styles.selectSavedBtnText}>Saved Addresses</Text>
         </TouchableOpacity>
       </View>
 
@@ -1168,7 +1165,7 @@ export default function CartScreen() {
               setFormFullName(txt);
               if (shippingNameError) setShippingNameError('');
             }}
-            placeholder="Enter your name"
+            placeholder="Enter your full name"
             placeholderTextColor="#94A3B8"
           />
         </View>
@@ -1285,22 +1282,36 @@ export default function CartScreen() {
       {/* PIN Code */}
       <View style={styles.inputGroup}>
         <Text style={styles.fieldLabel}>PIN Code</Text>
-        <View style={[styles.inputBox, Boolean(shippingPincodeError) && styles.inputBoxError]}>
+        <View style={[
+          styles.inputBox, 
+          Boolean(shippingPincodeError) && styles.inputBoxError,
+          formPincode.trim().length === 6 && !shippingPincodeError && styles.inputBoxSuccess
+        ]}>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { letterSpacing: 1.5, fontWeight: '700' }]}
             value={formPincode}
             onChangeText={(txt) => {
-              setFormPincode(txt);
+              const cleaned = txt.replace(/\D/g, '').slice(0, 6);
+              setFormPincode(cleaned);
               if (shippingPincodeError) setShippingPincodeError('');
             }}
-            placeholder="PIN Code"
+            placeholder="6-digit PIN Code"
             placeholderTextColor="#94A3B8"
             keyboardType="numeric"
             maxLength={6}
           />
+          {formPincode.trim().length === 6 && !shippingPincodeError && (
+            <View style={styles.checkCircleSmall}>
+              <Check size={11} color="#16A34A" strokeWidth={3} />
+            </View>
+          )}
         </View>
-        {Boolean(shippingPincodeError) && (
+        {Boolean(shippingPincodeError) ? (
           <Text style={styles.fieldErrorText}>{shippingPincodeError}</Text>
+        ) : (
+          formPincode.trim().length === 6 && (
+            <Text style={styles.fieldSuccessText}>✓ Valid 6-digit PIN Code</Text>
+          )
         )}
       </View>
 
@@ -1322,7 +1333,21 @@ export default function CartScreen() {
   // STEP 3: Payment Options
   const renderPaymentStep = () => (
     <View style={styles.stepSectionCard}>
-      <Text style={styles.stepSectionTitle}>Payment Method</Text>
+      <View style={styles.shippingHeaderRow}>
+        <View style={styles.shippingTitleGroup}>
+          <TouchableOpacity 
+            style={styles.backStepBtn} 
+            onPress={() => setCurrentStep(2)}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={16} color="#64748B" />
+          </TouchableOpacity>
+          <View style={styles.stepNumberCircle}>
+            <Text style={styles.stepNumberCircleText}>3</Text>
+          </View>
+          <Text style={styles.stepSectionTitle}>Payment Method</Text>
+        </View>
+      </View>
       <Text style={styles.stepSectionSub}>Pay securely via Paytm Payment Gateway.</Text>
 
       {/* Paytm Exclusive Option */}
@@ -1363,7 +1388,7 @@ export default function CartScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       {/* Header with Title */}
       <View style={styles.header}>
         {!isAuthenticated ? (
@@ -1392,7 +1417,7 @@ export default function CartScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {!isAuthenticated ? (
-          /* Guest View: Welcome to Dharani / Login prompt */
+          /* Guest View: Welcome to Vedan Mart / Login prompt */
           renderGuestLoginPrompt()
         ) : items.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -1477,13 +1502,14 @@ export default function CartScreen() {
         onClose={() => setShowAddressModal(false)}
         onSelectAddress={(addr) => {
           setShippingAddress(addr);
-          const nameVal = addr.full_name || addr.name || '';
+          const nameVal = addr.full_name || addr.name || addr.user_name || '';
           setFormFullName(nameVal === 'User' ? '' : nameVal);
           const phoneVal = addr.phone || addr.mobile || userPhone || '';
           setFormPhone(phoneVal);
-          setFormAddress(addr.address || '');
+          const addrText = addr.address || addr.delivery_address || addr.address_line1 || addr.street || '';
+          setFormAddress(addrText);
           setFormCity(addr.city || '');
-          setFormState(addr.state || '');
+          setFormState(addr.state || 'Tamil Nadu');
           setFormPincode(addr.pincode || '');
         }}
       />
@@ -1624,13 +1650,15 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 6,
+    paddingTop: 16,
+    paddingBottom: 14,
+    backgroundColor: '#FAFCFC',
+    alignItems: 'flex-start',
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '900',
-    color: '#1E293B',
+    color: colors.text,
     letterSpacing: -0.5,
   },
 
@@ -1884,6 +1912,28 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontWeight: '600',
   },
+  backStepBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    marginRight: 2,
+  },
+  selectSavedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  selectSavedBtnText: {
+    fontSize: 11,
+    color: '#15803D',
+    fontWeight: '800',
+  },
 
   /* Form Input Styles */
   inputGroup: {
@@ -1910,8 +1960,20 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     backgroundColor: '#FFFFFF',
   },
+  inputBoxSuccess: {
+    borderColor: '#16A34A',
+    borderWidth: 1.5,
+    backgroundColor: '#F0FDF4',
+  },
   fieldErrorText: {
     color: '#EF4444',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+    marginLeft: 2,
+  },
+  fieldSuccessText: {
+    color: '#16A34A',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,

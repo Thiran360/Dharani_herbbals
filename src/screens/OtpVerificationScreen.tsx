@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
   KeyboardAvoidingView, Platform, ActivityIndicator, 
-  Dimensions, Alert 
+  Dimensions, Alert, Keyboard 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -16,17 +16,27 @@ const OTP_LENGTH = 6;
 export default function OtpVerificationScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { mobile, name, email, userId } = route.params || {};
+  const { mobile, name, email, userId, serverOtp, otp: paramOtp } = route.params || {};
 
   const verifyOtp = useAuthStore((state) => state.verifyOtp);
   const resendOtp = useAuthStore((state) => state.resendOtp);
 
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
+  const initialOtp = serverOtp || paramOtp;
+
+  const [otpString, setOtpString] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [resendTimer, setResendTimer] = useState(30);
 
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const mainInputRef = useRef<TextInput>(null);
+
+  // Automatically autofill OTP string on mount if available
+  useEffect(() => {
+    if (initialOtp && String(initialOtp).length >= 4) {
+      const clean = String(initialOtp).replace(/[^0-9]/g, '').slice(0, OTP_LENGTH);
+      setOtpString(clean);
+    }
+  }, [initialOtp]);
 
   useEffect(() => {
     let interval: any;
@@ -40,84 +50,76 @@ export default function OtpVerificationScreen() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      inputRefs.current[0]?.focus();
-    }, 300);
+      mainInputRef.current?.focus();
+    }, 200);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleOtpChange = (text: string, index: number) => {
-    const cleanText = text.replace(/[^0-9]/g, '');
-    const newOtp = [...otp];
-
-    if (cleanText.length > 1) {
-      // User pasted or auto-filled full OTP
-      const pastedDigits = cleanText.slice(0, OTP_LENGTH).split('');
-      for (let i = 0; i < OTP_LENGTH; i++) {
-        newOtp[i] = pastedDigits[i] || '';
-      }
-      setOtp(newOtp);
-      const nextIndex = Math.min(pastedDigits.length, OTP_LENGTH - 1);
-      inputRefs.current[nextIndex]?.focus();
-    } else {
-      const char = cleanText.slice(-1);
-      newOtp[index] = char;
-      setOtp(newOtp);
-
-      if (char && index < OTP_LENGTH - 1) {
-        inputRefs.current[index + 1]?.focus();
-      }
+  const handleOtpStringChange = (text: string) => {
+    const clean = text.replace(/[^0-9]/g, '').slice(0, OTP_LENGTH);
+    setOtpString(clean);
+    if (clean.length === OTP_LENGTH) {
+      Keyboard.dismiss();
     }
   };
 
-  const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === 'Backspace') {
-      if (!otp[index] && index > 0) {
-        const newOtp = [...otp];
-        newOtp[index - 1] = '';
-        setOtp(newOtp);
-        inputRefs.current[index - 1]?.focus();
-      } else {
-        const newOtp = [...otp];
-        newOtp[index] = '';
-        setOtp(newOtp);
-      }
-    }
-  };
+  const isAutoSubmitted = useRef(false);
 
-  const handleVerify = async () => {
-    const fullOtp = otp.join('');
-    if (fullOtp.length < 4) {
-      Alert.alert('Incomplete OTP', 'Please enter the complete OTP sent to your phone.');
+  const handleVerify = async (codeToVerify?: string | any) => {
+    const fullOtp = (typeof codeToVerify === 'string' && codeToVerify.length >= 4) ? codeToVerify : otpString;
+    if (fullOtp.length < OTP_LENGTH) {
+      Alert.alert('Incomplete OTP', `Please enter the complete ${OTP_LENGTH}-digit OTP sent to your phone.`);
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await verifyOtp(mobile, fullOtp, { name, email, userId });
+      const response = await verifyOtp(mobile, fullOtp, { name, email, userId, serverOtp: initialOtp });
       if (response?.success !== false) {
         navigation.reset({
           index: 0,
           routes: [{ name: 'MainTabs' }],
         });
       } else {
+        isAutoSubmitted.current = false;
         Alert.alert('Verification Failed', response?.message || 'Invalid OTP. Please try again.');
       }
     } catch (error: any) {
+      isAutoSubmitted.current = false;
       Alert.alert('Verification Failed', error.message || 'Invalid OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Fast auto-submit / auto-login as soon as OTP is completely autofilled or entered
+  useEffect(() => {
+    if (otpString.length === OTP_LENGTH && !isLoading && !isAutoSubmitted.current) {
+      isAutoSubmitted.current = true;
+      const timer = setTimeout(() => {
+        handleVerify(otpString);
+      }, 100);
+      return () => clearTimeout(timer);
+    } else if (otpString.length < OTP_LENGTH) {
+      isAutoSubmitted.current = false;
+    }
+  }, [otpString, isLoading]);
+
   const handleResend = async () => {
     if (resendTimer > 0 || isResending) return;
     setIsResending(true);
     try {
       const res = await resendOtp(mobile);
-      Alert.alert('OTP Resent', res.message || 'A new verification code has been sent to your mobile number.');
+      const newOtpStr = res?.otp || res?.data?.otp || res?.code;
+      if (newOtpStr && String(newOtpStr).length >= 4) {
+        const clean = String(newOtpStr).replace(/[^0-9]/g, '').slice(0, OTP_LENGTH);
+        setOtpString(clean);
+      } else {
+        setOtpString('');
+      }
+      Alert.alert('OTP Resent', res?.message || 'A new verification code has been sent to your mobile number.');
       setResendTimer(30);
-      setOtp(Array(OTP_LENGTH).fill(''));
-      inputRefs.current[0]?.focus();
+      mainInputRef.current?.focus();
     } catch (error: any) {
       Alert.alert('Resend Failed', error.message || 'Could not resend OTP. Please try again.');
     } finally {
@@ -125,7 +127,7 @@ export default function OtpVerificationScreen() {
     }
   };
 
-  const isOtpComplete = otp.join('').length >= 4;
+  const isOtpComplete = otpString.length === OTP_LENGTH;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -162,30 +164,50 @@ export default function OtpVerificationScreen() {
           <View style={styles.cardContainer}>
             <Text style={styles.otpLabel}>Enter 6-Digit Code</Text>
             
-            <View style={styles.otpInputRow}>
-              {otp.map((digit, idx) => (
-                <TextInput
-                  key={idx}
-                  ref={(ref) => { inputRefs.current[idx] = ref; }}
-                  style={[
-                    styles.otpBox,
-                    digit ? styles.otpBoxActive : null,
-                  ]}
-                  value={digit}
-                  onChangeText={(text) => handleOtpChange(text, idx)}
-                  onKeyPress={(e) => handleKeyPress(e, idx)}
-                  keyboardType="number-pad"
-                  maxLength={6}
-                  selectTextOnFocus
-                  autoComplete="one-time-code"
-                  textContentType="oneTimeCode"
-                />
-              ))}
-            </View>
+            {/* Single Hidden Input + 6 Visual Boxes */}
+            <TouchableOpacity 
+              activeOpacity={1} 
+              onPress={() => mainInputRef.current?.focus()}
+              style={styles.otpInputContainer}
+            >
+              <TextInput
+                ref={mainInputRef}
+                style={styles.hiddenTextInput}
+                value={otpString}
+                onChangeText={handleOtpStringChange}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoComplete="one-time-code"
+                textContentType="oneTimeCode"
+                selectionColor="transparent"
+                cursorColor="transparent"
+                caretHidden={true}
+                autoFocus
+              />
+
+              <View style={styles.otpInputRow} pointerEvents="none">
+                {Array(OTP_LENGTH).fill('').map((_, idx) => {
+                  const digit = otpString[idx] || '';
+                  const isFocused = (otpString.length === idx) || (idx === 5 && otpString.length === 6);
+                  return (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.otpBox,
+                        digit ? styles.otpBoxActive : null,
+                        isFocused ? styles.otpBoxFocused : null,
+                      ]}
+                    >
+                      <Text style={styles.otpDigitText}>{digit}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </TouchableOpacity>
 
             <TouchableOpacity 
               style={[styles.verifyButton, (!isOtpComplete || isLoading) && styles.verifyButtonDisabled]}
-              onPress={handleVerify}
+              onPress={() => handleVerify()}
               disabled={!isOtpComplete || isLoading}
               activeOpacity={0.8}
             >
@@ -331,10 +353,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+  otpInputContainer: {
+    position: 'relative',
+    width: '100%',
+    marginBottom: 24,
+  },
+  hiddenTextInput: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    opacity: 0.01,
+    zIndex: 10,
+  },
   otpInputRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 28,
+    alignItems: 'center',
+    width: '100%',
   },
   otpBox: {
     width: (width - 120) / 6,
@@ -343,10 +380,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1F5F9',
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    textAlign: 'center',
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   otpBoxActive: {
     borderColor: colors.primary,
@@ -356,6 +391,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 2,
+  },
+  otpBoxFocused: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  otpDigitText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
   },
   verifyButton: {
     backgroundColor: colors.primary,

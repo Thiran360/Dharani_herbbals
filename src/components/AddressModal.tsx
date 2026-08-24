@@ -7,6 +7,8 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useShippingStore } from '../store/useShippingStore';
 import { apiClient } from '../api/client';
 import SuccessModal from './SuccessModal';
+import { useLocation } from '../hooks/useLocation';
+
 
 interface AddressModalProps {
   visible: boolean;
@@ -18,19 +20,32 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
   const user = useAuthStore((state) => state.user);
   const stateList = useShippingStore((state) => state.stateList);
   const fetchShippingRules = useShippingStore((state) => state.fetchShippingRules);
+  const { getLocationOnce } = useLocation();
+
 
   const [addresses, setAddresses] = useState<any[]>([]);
   const [totalAddresses, setTotalAddresses] = useState(0);
   const [userName, setUserName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const getValidProfileName = (userObj: any): string => {
+    if (!userObj) return '';
+    const rawName = (userObj.name || userObj.full_name || userObj.username || userObj.first_name || '').trim();
+    if (!rawName) return '';
+    const lower = rawName.toLowerCase();
+    if (lower === 'user' || lower === 'guest' || lower === 'guest user' || lower === 'guest_email' || lower.includes('guest')) {
+      return '';
+    }
+    return rawName;
+  };
+
   const [refreshing, setRefreshing] = useState(false);
   const [selectedId, setSelectedId] = useState<number | string | null>(null);
 
   // Form State for Add / Edit Address (matching Web UI)
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
   const [editingAddressId, setEditingAddressId] = useState<number | string | null>(null);
-  const [fullName, setFullName] = useState(user?.name && user.name !== 'User' ? user.name : '');
-  const [phone, setPhone] = useState(user?.phone && user.phone !== '9025464822' ? user.phone : '');
+  const [fullName, setFullName] = useState(getValidProfileName(user));
+  const [phone, setPhone] = useState(user?.phone || user?.mobile || '');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('Tamil Nadu');
@@ -188,8 +203,9 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
 
   const populateForm = (addr: any) => {
     setEditingAddressId(addr.id || null);
-    const nameVal = addr.full_name || addr.name || userName || user?.name || '';
-    setFullName(nameVal === 'User' ? '' : nameVal);
+    const addrName = getValidProfileName({ name: addr.full_name || addr.name });
+    const profileName = getValidProfileName(user) || getValidProfileName({ name: userName });
+    setFullName(addrName || profileName);
     const phoneVal = addr.phone || addr.mobile || user?.phone || user?.mobile || '';
     setPhone(phoneVal);
     setDeliveryAddress(addr.address || '');
@@ -200,7 +216,8 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
 
   const resetFormForNew = () => {
     setEditingAddressId(null);
-    setFullName(userName && userName !== 'User' ? userName : '');
+    const profileName = getValidProfileName(user) || getValidProfileName({ name: userName });
+    setFullName(profileName);
     setPhone(user?.phone || user?.mobile || '');
     setDeliveryAddress('');
     setCity('');
@@ -228,14 +245,40 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
   };
 
   const confirmDeleteAddress = async (addr: any) => {
-    const numericUserId = Number(user?.id);
+    if (!addr || !addr.id) return;
     const addrId = addr.id;
+    const strAddrId = String(addrId);
 
-    // Optimistically update address list
-    setAddresses((prev) => prev.filter((a) => a.id !== addrId));
-    setTotalAddresses((prev) => Math.max(0, prev - 1));
+    // 1. Optimistically update local UI state
+    let remainingList: any[] = [];
+    setAddresses((prev) => {
+      remainingList = prev.filter((a) => String(a.id) !== strAddrId);
+      setTotalAddresses(remainingList.length);
+      return remainingList;
+    });
 
+    // 2. Immediately persist updated list to AsyncStorage so fetchAddresses never restores it
     try {
+      let numericUserId = user?.id ? Number(user.id) : 8;
+      if (isNaN(numericUserId) || numericUserId <= 0) numericUserId = 8;
+
+      const userKey = getStorageKey(numericUserId);
+      const guestKey = getStorageKey('guest');
+
+      await AsyncStorage.setItem(userKey, JSON.stringify(remainingList));
+      await AsyncStorage.setItem(guestKey, JSON.stringify(remainingList));
+
+      if (String(selectedId) === strAddrId) {
+        setSelectedId(null);
+        await AsyncStorage.removeItem(getSelectedIdKey(numericUserId));
+      }
+    } catch (e) {
+      console.warn("AsyncStorage delete sync notice:", e);
+    }
+
+    // 3. Perform backend API delete request
+    try {
+      const numericUserId = Number(user?.id);
       if (!isNaN(numericUserId) && numericUserId > 0) {
         try {
           await apiClient(`/address/${numericUserId}/`, {
@@ -249,92 +292,27 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
         }
       }
     } catch (err) {
-      console.warn("Notice deleting address:", err);
-    } finally {
-      fetchAddresses();
+      console.warn("API delete address notice:", err);
     }
   };
 
   const [isLocating, setIsLocating] = useState(false);
 
-  const fetchMobileLocation = async (): Promise<{ lat: string; lon: string } | null> => {
-    if (Platform.OS === 'android') {
-      try {
-        await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: 'Location Access Needed',
-            message: 'Dharani Herbals needs location access to auto-detect your delivery address.',
-            buttonNeutral: 'Ask Me Later',
-            buttonNegative: 'Cancel',
-            buttonPositive: 'OK',
-          }
-        );
-      } catch (err) {
-        console.warn('Location permission request notice:', err);
-      }
-    }
-
-    const getNavLocation = (): Promise<{ lat: string; lon: string } | null> => {
-      return new Promise((resolve) => {
-        const geo = (globalThis as any)?.navigator?.geolocation;
-        if (geo && typeof geo.getCurrentPosition === 'function') {
-          geo.getCurrentPosition(
-            (position: any) => {
-              if (position?.coords?.latitude && position?.coords?.longitude) {
-                resolve({
-                  lat: String(position.coords.latitude),
-                  lon: String(position.coords.longitude),
-                });
-              } else {
-                resolve(null);
-              }
-            },
-            () => resolve(null),
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
-          );
-        } else {
-          resolve(null);
-        }
-      });
-    };
-
-    const navCoords = await getNavLocation();
-    if (navCoords) return navCoords;
-
-    try {
-      const ipRes = await fetch('https://ipapi.co/json/', { headers: { 'Accept': 'application/json' } });
-      if (ipRes.ok) {
-        const ipData = await ipRes.json();
-        if (ipData?.latitude && ipData?.longitude) {
-          return { lat: String(ipData.latitude), lon: String(ipData.longitude) };
-        }
-      }
-    } catch (e) {}
-
-    try {
-      const ipRes2 = await fetch('http://ip-api.com/json', { headers: { 'Accept': 'application/json' } });
-      if (ipRes2.ok) {
-        const ipData2 = await ipRes2.json();
-        if (ipData2?.lat && ipData2?.lon) {
-          return { lat: String(ipData2.lat), lon: String(ipData2.lon) };
-        }
-      }
-    } catch (e) {}
-
-    return null;
-  };
-
   const handleAutoDetectLocation = async () => {
     setIsLocating(true);
     try {
-      const coords = await fetchMobileLocation();
-      const lat = coords?.lat || '11.35941';
-      const lon = coords?.lon || '77.828346';
+      const coords = await getLocationOnce();
+      if (!coords) {
+        setIsLocating(false);
+        return;
+      }
+      
+      const lat = String(coords.latitude);
+      const lon = String(coords.longitude);
 
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
         headers: {
-          'User-Agent': 'DharaniHerbalsApp/1.0',
+          'User-Agent': 'VedanMartApp/1.0',
           'Accept': 'application/json',
         }
       });
@@ -342,17 +320,15 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
         const data = await res.json();
         if (data && data.address) {
           const addr = data.address;
-          const detectedCity = addr.town || addr.city || addr.county || addr.village || addr.suburb || addr.state_district || '';
+          const detectedCity = addr.town || addr.city || addr.county || addr.village || addr.suburb || addr.state_district || 'Chennai';
           const detectedState = addr.state || 'Tamil Nadu';
           const detectedPincode = addr.postcode || '';
-          const road = addr.road || addr.suburb || addr.neighbourhood || '';
-          const fullDisplay = [road, detectedCity, detectedState, detectedPincode].filter(Boolean).join(', ') || data.display_name || '';
 
-          setDeliveryAddress(fullDisplay);
+          setDeliveryAddress(detectedCity);
           setCity(detectedCity);
-          setStateName(detectedState);
-          setPincode(detectedPincode);
-          setLocationSuccessMsg(`Detected: ${detectedCity}, ${detectedState}`);
+          if (detectedState) setStateName(detectedState);
+          if (detectedPincode) setPincode(detectedPincode);
+          setLocationSuccessMsg(`City Detected: ${detectedCity}`);
           setShowLocationSuccess(true);
         }
       }
@@ -363,6 +339,7 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
       setIsLocating(false);
     }
   };
+
 
   const handleSaveAddress = async () => {
     if (!fullName || !phone || !deliveryAddress || !pincode) {
@@ -662,7 +639,7 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
                       style={styles.webTextInput}
                       value={fullName}
                       onChangeText={setFullName}
-                      placeholder="Enter full name"
+                      placeholder="Enter your full name"
                       placeholderTextColor="#94A3B8"
                     />
                   </View>

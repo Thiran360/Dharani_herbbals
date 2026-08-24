@@ -1,4 +1,6 @@
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+const path = require('path');
+const { FileStore } = require('metro-cache');
 
 /**
  * Metro configuration
@@ -6,6 +8,12 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
  *
  * @type {import('@react-native/metro-config').MetroConfig}
  */
-const config = {};
+const config = {
+  cacheStores: [
+    new FileStore({
+      root: path.join(__dirname, '.metro-cache'),
+    }),
+  ],
+};
 
 module.exports = mergeConfig(getDefaultConfig(__dirname), config);

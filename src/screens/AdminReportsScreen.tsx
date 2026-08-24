@@ -13,6 +13,7 @@ const REPORTS = [
   { id: 'inventory', name: 'Inventory Report', endpoint: 'https://api.codingboss.in/herbal/reports/inventory/', icon: FileText },
 ];
 
+
 export default function AdminReportsScreen() {
   const navigation = useNavigation<any>();
   const [activeReport, setActiveReport] = useState<string | null>(null);

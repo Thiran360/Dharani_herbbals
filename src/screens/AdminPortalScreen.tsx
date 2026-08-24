@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   LogOut, Users, Package, ShoppingBag, TrendingUp,
   ChevronRight, PlusCircle, Trash2, RefreshCw, ImagePlus, Edit3,
-  FileText, ClipboardList
+  FileText, ClipboardList, MapPin
 } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 import { useAuthStore } from '../store/useAuthStore';
@@ -507,7 +507,24 @@ export default function AdminPortalScreen() {
           </View>
           <ChevronRight color="#CBD5E1" size={20} />
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionItem}
+          activeOpacity={0.7}
+          onPress={() => navigation.navigate('LocationTest')}
+        >
+          <View style={[styles.actionIcon, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
+            <MapPin color="#3B82F6" size={22} />
+          </View>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Verify GPS Location</Text>
+            <Text style={styles.actionSubtitle}>Test live device GPS & accuracy</Text>
+          </View>
+          <ChevronRight color="#CBD5E1" size={20} />
+        </TouchableOpacity>
       </View>
+
+
 
       {/* Sliders List */}
       <View style={styles.productListHeader}>

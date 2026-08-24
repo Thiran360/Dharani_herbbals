@@ -414,7 +414,7 @@ export default function ShopScreen() {
   const displayBrands = React.useMemo(() => [{ id: 'all', name: 'All' }, ...(Array.isArray(brands) ? brands : [])], [brands]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
 
       <View style={[styles.searchRow, { zIndex: 10 }]}>
         <View style={styles.searchContainer}>
@@ -667,8 +667,8 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    marginTop: 25,
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 14,
     alignItems: 'center',
   },
   searchContainer: {

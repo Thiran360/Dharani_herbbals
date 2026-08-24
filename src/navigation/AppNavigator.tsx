@@ -2,11 +2,11 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
-import { View, TouchableOpacity, StyleSheet, Text, Image } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Text, Image, Platform } from 'react-native';
 import { Home, ShoppingBag, ShoppingCart, User, Search, Bell, Leaf } from 'lucide-react-native';
 import { colors } from '../theme/colors';
 
-// We'll import these once created
+import SplashScreen from '../screens/SplashScreen';
 import HomeScreen from '../screens/HomeScreen';
 import ShopScreen from '../screens/ShopScreen';
 import CartScreen from '../screens/CartScreen';
@@ -24,7 +24,9 @@ import AdminReportsScreen from '../screens/AdminReportsScreen';
 import AdminOrdersListScreen from '../screens/AdminOrdersListScreen';
 import OrderTrackingScreen from '../screens/OrderTrackingScreen';
 import MyAddressesScreen from '../screens/MyAddressesScreen';
+import LocationTestScreen from '../screens/LocationTestScreen';
 import { useAuthStore } from '../store/useAuthStore';
+
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -32,15 +34,11 @@ const Stack = createNativeStackNavigator();
 function BottomTabs() {
   return (
     <Tab.Navigator
-      detachInactiveScreens={false}
       screenOptions={{
         sceneStyle: { backgroundColor: '#FAFCFC' },
-        lazy: false,
-        freezeOnBlur: false,
-        animation: 'none',
         headerShown: true,
         headerStyle: {
-          backgroundColor: '#F8FAFC',
+          backgroundColor: '#FAFCFC',
           elevation: 0,
           shadowOpacity: 0,
           borderBottomWidth: 0,
@@ -55,10 +53,9 @@ function BottomTabs() {
         headerLeft: () => (
           <View style={styles.headerLeftIcon}>
             <Image 
-              source={require('../assets/images/logo.png')} 
-              style={{ width: 120, height: 40 }} 
+              source={require('../assets/images/header_logo_brand.png')} 
+              style={{ width: 155, height: 38 }} 
               resizeMode="contain" 
-              resizeMethod="resize"
               fadeDuration={0}
             />
           </View>
@@ -81,7 +78,7 @@ function BottomTabs() {
         component={HomeScreen}
         options={{
           title: '', // Remove title since logo is in the headerLeft
-          tabBarIcon: ({ color, size }) => <Home color={color} size={24} />,
+          tabBarIcon: ({ color }) => <Home color={color} size={24} />,
         }}
       />
       <Tab.Screen
@@ -89,7 +86,7 @@ function BottomTabs() {
         component={ShopScreen}
         options={{
           title: '',
-          tabBarIcon: ({ color, size }) => <ShoppingBag color={color} size={24} />,
+          tabBarIcon: ({ color }) => <ShoppingBag color={color} size={24} />,
         }}
       />
       <Tab.Screen
@@ -97,7 +94,7 @@ function BottomTabs() {
         component={CartScreen}
         options={{
           title: '',
-          tabBarIcon: ({ color, size }) => <ShoppingCart color={color} size={24} />,
+          tabBarIcon: ({ color }) => <ShoppingCart color={color} size={24} />,
         }}
       />
       <Tab.Screen
@@ -105,7 +102,7 @@ function BottomTabs() {
         component={ProfileScreen}
         options={{
           title: '',
-          tabBarIcon: ({ color, size }) => <User color={color} size={24} />,
+          tabBarIcon: ({ color }) => <User color={color} size={24} />,
         }}
       />
     </Tab.Navigator>
@@ -113,42 +110,34 @@ function BottomTabs() {
 }
 
 export default function AppNavigator() {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
-  
   const isAdmin = user?.role === 'admin';
 
   return (
     <NavigationContainer>
       <Stack.Navigator 
+        initialRouteName="MainTabs"
         screenOptions={{ 
           headerShown: false,
-          animation: 'none',
-          freezeOnBlur: false,
+          animation: 'fade_from_bottom',
         }}
       >
-        {isAdmin ? (
-          <>
-            <Stack.Screen name="AdminPortal" component={AdminPortalScreen} />
-            <Stack.Screen name="AdminAddProduct" component={AdminAddProductScreen} />
-            <Stack.Screen name="AdminEditProduct" component={AdminEditProductScreen} />
-            <Stack.Screen name="AdminAddCategory" component={AdminAddCategoryScreen} />
-            <Stack.Screen name="AdminAddSlider" component={AdminAddSliderScreen} />
-            <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
-            <Stack.Screen name="AdminOrdersList" component={AdminOrdersListScreen} />
-            {/* Admin might need to logout, so we can keep MainTabs accessible if needed, but usually admin is locked to portal. We'll leave it as is. */}
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="MainTabs" component={BottomTabs} />
-            <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
-            <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
-            <Stack.Screen name="MyAddresses" component={MyAddressesScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Signup" component={SignupScreen} />
-            <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
-          </>
-        )}
+        <Stack.Screen name="Splash" component={SplashScreen} />
+        <Stack.Screen name="MainTabs" component={BottomTabs} />
+        <Stack.Screen name="AdminPortal" component={AdminPortalScreen} />
+        <Stack.Screen name="AdminAddProduct" component={AdminAddProductScreen} />
+        <Stack.Screen name="AdminEditProduct" component={AdminEditProductScreen} />
+        <Stack.Screen name="AdminAddCategory" component={AdminAddCategoryScreen} />
+        <Stack.Screen name="AdminAddSlider" component={AdminAddSliderScreen} />
+        <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
+        <Stack.Screen name="AdminOrdersList" component={AdminOrdersListScreen} />
+        <Stack.Screen name="ProductDetails" component={ProductDetailsScreen} />
+        <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+        <Stack.Screen name="MyAddresses" component={MyAddressesScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+        <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+        <Stack.Screen name="LocationTest" component={LocationTestScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -157,8 +146,15 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   headerLeftIcon: {
     marginLeft: 16,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerTitleText: {
+    marginLeft: 10,
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   headerIcons: {
     flexDirection: 'row',

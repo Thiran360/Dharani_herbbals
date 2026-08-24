@@ -12,7 +12,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, phone: string, password: string) => Promise<any>;
   requestLoginOtp: (mobile: string) => Promise<any>;
-  verifyOtp: (mobile: string, otp: string, info?: { name?: string; email?: string; userId?: any; user_id?: any }) => Promise<any>;
+  verifyOtp: (mobile: string, otp: string, info?: { name?: string; email?: string; userId?: any; user_id?: any; serverOtp?: string; expectedOtp?: string }) => Promise<any>;
   resendOtp: (mobile: string) => Promise<any>;
   requestPasswordReset: (mobile: string) => Promise<any>;
   resetPassword: (mobile: string, otp: string, newPassword: string, confirmPassword: string) => Promise<any>;
@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
               const backendName = custData.name && custData.name !== 'User' && custData.name !== 'Guest User' ? custData.name : '';
               const finalName = hasCustomName ? currentName : (backendName || 'User');
 
-              const isRealEmail = (e: string) => e && e.includes('@') && !e.includes('@user.com') && e !== 'user@dharaniherbals.com';
+              const isRealEmail = (e: string) => e && e.includes('@') && !e.includes('@user.com') && e !== 'user@vedanmart.com';
               const currentEmail = state.user?.email || '';
               const hasCustomEmail = isRealEmail(currentEmail);
               const backendEmail = isRealEmail(custData.email) ? custData.email : '';
@@ -202,6 +202,14 @@ export const useAuthStore = create<AuthState>()(
       verifyOtp: async (mobile, otp, info) => {
         let response: any;
         const targetUserId = info?.userId || (info as any)?.user_id;
+        const expectedOtp = info?.serverOtp || info?.expectedOtp;
+        const cleanEnteredOtp = String(otp).replace(/\D/g, '');
+        const cleanExpectedOtp = expectedOtp ? String(expectedOtp).replace(/\D/g, '') : null;
+
+        // Strict client-side check if expected server OTP is known
+        if (cleanExpectedOtp && cleanEnteredOtp !== cleanExpectedOtp) {
+          return { success: false, message: 'Invalid OTP code. Please enter the correct verification code.' };
+        }
 
         const bodyObj: any = {
           otp,
@@ -213,39 +221,72 @@ export const useAuthStore = create<AuthState>()(
           bodyObj.user_id = targetUserId;
         }
 
+        let isVerified = false;
+
         try {
           response = await apiClient('/verify-otp/', {
             method: 'POST',
             body: JSON.stringify(bodyObj),
           });
-        } catch (err0) {
+          if (response && response.success !== false && response.status !== 'error') {
+            isVerified = true;
+          }
+        } catch (err0: any) {
+          const status = err0?.status;
+          const msg = (err0?.message || '').toLowerCase();
+          if (status === 400 || status === 401 || status === 422 || msg.includes('invalid') || msg.includes('incorrect') || msg.includes('wrong')) {
+            return { success: false, message: err0?.message || 'Invalid OTP. Please enter the correct verification code.' };
+          }
+
           try {
             response = await apiClient('/verify/', {
               method: 'POST',
               body: JSON.stringify(bodyObj),
             });
-          } catch (err1) {
-            console.warn("Backend verify-otp returned error, creating fallback session.");
-            response = {
-              success: true,
-              token: 'token-' + Date.now(),
-              user: {
-                id: targetUserId ? String(targetUserId) : Date.now().toString(),
-                name: info?.name || 'User',
-                email: info?.email || '',
-                mobile: mobile,
-                phone: mobile,
-                role: 'user',
-              }
-            };
+            if (response && response.success !== false && response.status !== 'error') {
+              isVerified = true;
+            }
+          } catch (err1: any) {
+            const status1 = err1?.status;
+            const msg1 = (err1?.message || '').toLowerCase();
+            if (status1 === 400 || status1 === 401 || status1 === 422 || msg1.includes('invalid') || msg1.includes('incorrect') || msg1.includes('wrong')) {
+              return { success: false, message: err1?.message || 'Invalid OTP. Please enter the correct verification code.' };
+            }
+
+            // Fallback for network issues: ONLY verify if expectedOtp is known and matches
+            if (cleanExpectedOtp && cleanEnteredOtp === cleanExpectedOtp) {
+              response = {
+                success: true,
+                token: 'token-' + Date.now(),
+                user: {
+                  id: targetUserId ? String(targetUserId) : Date.now().toString(),
+                  name: info?.name || 'User',
+                  email: info?.email || '',
+                  mobile: mobile,
+                  phone: mobile,
+                  role: 'user',
+                }
+              };
+              isVerified = true;
+            } else {
+              return { success: false, message: 'Invalid OTP code. Verification failed.' };
+            }
           }
+        }
+
+        if (response && response.success === false) {
+          return { success: false, message: response?.message || 'Invalid OTP. Verification failed.' };
+        }
+
+        if (!isVerified && (!response || (!response.token && !response.data && !response.user))) {
+          return { success: false, message: 'Invalid OTP code. Verification failed.' };
         }
 
         const userData = response?.data || response?.user || response || {};
         useCartStore.getState().resetCart();
         const existingEmail = get().user?.email || '';
         const candidateEmail = userData.email || info?.email || existingEmail || '';
-        const cleanEmail = (candidateEmail.includes('@user.com') || candidateEmail === 'user@dharaniherbals.com') ? (info?.email || existingEmail || '') : candidateEmail;
+        const cleanEmail = (candidateEmail.includes('@user.com') || candidateEmail === 'user@vedanmart.com') ? (info?.email || existingEmail || '') : candidateEmail;
 
         set({
           isAuthenticated: true,

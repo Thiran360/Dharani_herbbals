@@ -94,6 +94,8 @@ export default function SignupScreen() {
                   style={styles.input}
                   placeholder="Enter your full name"
                   placeholderTextColor={colors.textSecondary}
+                  autoComplete="name"
+                  textContentType="name"
                   value={name}
                   onChangeText={setName}
                 />
@@ -110,6 +112,8 @@ export default function SignupScreen() {
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  autoComplete="email"
+                  textContentType="emailAddress"
                   value={email}
                   onChangeText={setEmail}
                 />
@@ -125,6 +129,8 @@ export default function SignupScreen() {
                   placeholder="Enter your mobile number"
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
                   value={phone}
                   onChangeText={setPhone}
                 />
@@ -140,6 +146,8 @@ export default function SignupScreen() {
                   placeholder="Create a password"
                   placeholderTextColor={colors.textSecondary}
                   secureTextEntry={!showPassword}
+                  autoComplete="password"
+                  textContentType="newPassword"
                   value={password}
                   onChangeText={setPassword}
                 />

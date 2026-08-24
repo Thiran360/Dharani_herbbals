@@ -344,7 +344,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       
       {/* Premium Search Bar */}
       <View style={styles.searchContainerWrapper}>
@@ -818,9 +818,9 @@ const styles = StyleSheet.create({
   },
   searchContainerWrapper: {
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
-    backgroundColor: 'rgba(250, 252, 252, 0.9)',
+    paddingTop: 16,
+    paddingBottom: 14,
+    backgroundColor: '#FAFCFC',
     zIndex: 10,
   },
   searchBar: {

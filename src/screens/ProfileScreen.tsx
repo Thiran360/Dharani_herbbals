@@ -33,6 +33,31 @@ export default function ProfileScreen() {
   const [showCalendarModal, setShowCalendarModal] = useState(false);
   const [activePolicy, setActivePolicy] = useState<PolicyType>('privacy');
 
+  const getValidProfileName = (userObj: any): string => {
+    if (!userObj) return 'User';
+    const rawName = (userObj.name || userObj.full_name || userObj.username || userObj.first_name || '').trim();
+    if (!rawName) return 'User';
+    const lower = rawName.toLowerCase();
+    if (lower === 'guest' || lower === 'guest user' || lower === 'guest_email' || lower.includes('guest') || lower.includes('enter your') || lower.includes('enter name')) {
+      return 'User';
+    }
+    return rawName;
+  };
+
+  const getValidProfileEmail = (userObj: any): string => {
+    if (!userObj) return '';
+    const rawEmail = (userObj.email || '').trim();
+    if (!rawEmail) return '';
+    const lower = rawEmail.toLowerCase();
+    if (lower.includes('guest') || lower.includes('@user.com') || lower === 'user@vedanmart.com') {
+      return '';
+    }
+    return rawEmail;
+  };
+
+  const profileName = getValidProfileName(user);
+  const profileEmail = getValidProfileEmail(user);
+
   React.useEffect(() => {
     if (isFocused && isAuthenticated) {
       fetchCustomerProfile(user?.id);
@@ -46,7 +71,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" translucent={false} />
       
       {/* Header */}
@@ -59,7 +84,7 @@ export default function ProfileScreen() {
           <View style={styles.guestIconCircle}>
             <User size={56} color={colors.primary} />
           </View>
-          <Text style={styles.guestTitle}>Welcome to Dharani</Text>
+          <Text style={styles.guestTitle}>Welcome to Vedan Mart</Text>
           <Text style={styles.guestSubtitle}>Sign in to view your verified profile, track orders, and manage shipping addresses.</Text>
           <TouchableOpacity 
             style={styles.loginBtn}
@@ -76,12 +101,12 @@ export default function ProfileScreen() {
           <View style={styles.userCard}>
             <View style={styles.avatarContainer}>
               <Text style={styles.avatarText}>
-                {user?.name && user.name !== 'User' ? user.name.charAt(0).toUpperCase() : 'U'}
+                {profileName ? profileName.charAt(0).toUpperCase() : 'U'}
               </Text>
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>
-                {user?.name && user.name !== 'User' ? user.name : 'User'}
+                {profileName || 'User'}
               </Text>
               
               {user?.phone ? (
@@ -91,10 +116,10 @@ export default function ProfileScreen() {
                 </View>
               ) : null}
 
-              {user?.email && !user.email.includes('@user.com') && user.email !== 'user@dharaniherbals.com' ? (
+              {profileEmail ? (
                 <View style={styles.contactRow}>
                   <Mail color={colors.textSecondary} size={14} />
-                  <Text style={styles.userContact}>{user.email}</Text>
+                  <Text style={styles.userContact}>{profileEmail}</Text>
                 </View>
               ) : null}
 
@@ -145,6 +170,7 @@ export default function ProfileScreen() {
               </View>
               <ChevronRight color="#94A3B8" size={18} strokeWidth={2} />
             </TouchableOpacity>
+
 
             {/* 4. Wishlist */}
             <TouchableOpacity 
@@ -244,13 +270,13 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={styles.menuItem}
               activeOpacity={0.7}
-              onPress={() => Linking.openURL('mailto:info@dharaniherbbals.in')}
+              onPress={() => Linking.openURL('mailto:info@vedanmart.in')}
             >
               <View style={[styles.menuIconContainer, { backgroundColor: 'rgba(15, 23, 42, 0.1)' }]}>
                 <Mail color="#0F172A" size={22} />
               </View>
               <View style={styles.menuTextContainer}>
-                <Text style={styles.menuTitle}>info@dharaniherbbals.in</Text>
+                <Text style={styles.menuTitle}>info@vedanmart.in</Text>
                 <Text style={styles.menuSubtitle}>Email us anytime</Text>
               </View>
               <ChevronRight color="#CBD5E1" size={20} />
@@ -259,7 +285,7 @@ export default function ProfileScreen() {
 
           {/* Footer info */}
           <View style={styles.footerInfo}>
-            <Text style={styles.footerText}>© 2026 Dharani Herbbals. All rights reserved.</Text>
+            <Text style={styles.footerText}>© 2026 Vedan Mart. All rights reserved.</Text>
             <Text style={styles.footerText}>Managed by ARUMUGAM POONKODI</Text>
             <Text style={styles.footerText}>Developed by ThinkAside</Text>
           </View>
@@ -318,7 +344,8 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingTop: 16,
+    paddingBottom: 14,
     backgroundColor: '#F8FAFC',
     alignItems: 'flex-start',
   },

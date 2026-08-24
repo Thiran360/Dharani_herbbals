@@ -30,7 +30,8 @@ export default function LoginScreen() {
       const res = await requestLoginOtp(mobile);
       if (res?.success !== false) {
         const userId = res?.user_id || res?.data?.user_id || res?.id;
-        navigation.navigate('OtpVerification', { mobile, userId });
+        const serverOtp = res?.otp || res?.data?.otp || res?.code;
+        navigation.navigate('OtpVerification', { mobile, userId, serverOtp });
       } else {
         Alert.alert('Error', res?.message || 'Failed to send OTP. Please try again.');
       }
@@ -100,6 +101,8 @@ export default function LoginScreen() {
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="phone-pad"
                   autoCapitalize="none"
+                  autoComplete="tel"
+                  textContentType="telephoneNumber"
                   value={mobile}
                   onChangeText={setMobile}
                 />

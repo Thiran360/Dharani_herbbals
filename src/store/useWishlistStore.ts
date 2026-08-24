@@ -22,7 +22,7 @@ interface WishlistState {
   clearWishlist: () => Promise<void>;
 }
 
-const WISHLIST_STORAGE_KEY = '@dharani_wishlist_items';
+const WISHLIST_STORAGE_KEY = '@vedanmart_wishlist_items';
 
 export const useWishlistStore = create<WishlistState>((set, get) => ({
   wishlistItems: [],
