@@ -54,6 +54,11 @@ interface CartState {
   verifyPaytmCallback: (callbackData: any) => Promise<any>;
   getPaytmStatus: (orderId: string | number) => Promise<any>;
   refundPaytmPayment: (refundData: any) => Promise<any>;
+  
+  createPayGlocalOrder: (userId: number | string, amount?: number, orderDetails?: any) => Promise<any>;
+  verifyPayGlocalCallback: (callbackData: any) => Promise<any>;
+  getPayGlocalStatus: (orderId: string | number) => Promise<any>;
+  
   getTotalPrice: () => number;
 }
 
@@ -624,6 +629,65 @@ export const useCartStore = create<CartState>((set, get) => ({
     } catch (error) {
       console.warn("Failed to process Paytm refund", error);
       set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  createPayGlocalOrder: async (userId, amount, orderDetails) => {
+    set({ isLoading: true });
+    const targetUserId = userId || useAuthStore.getState().user?.id || '';
+    const details = typeof orderDetails === 'object' ? orderDetails : {};
+    const fallbackOrderId = details.order_id || details.ORDER_ID || `ORD_${Date.now()}`;
+    const payload = JSON.stringify({ 
+      user_id: targetUserId, 
+      amount: amount || get().grandTotal,
+      order_id: fallbackOrderId,
+      ORDER_ID: fallbackOrderId,
+      ...details
+    });
+
+    try {
+      const response = await apiClient('/payglocal/create/', {
+        method: 'POST',
+        body: payload,
+      });
+      set({ isLoading: false });
+      return response;
+    } catch (error: any) {
+      console.warn("Failed to create PayGlocal order on backend:", error);
+      set({ isLoading: false });
+      return {
+        success: false,
+        error: error?.raw || error?.message || 'PayGlocal Order Notice',
+      };
+    }
+  },
+
+  verifyPayGlocalCallback: async (callbackData) => {
+    set({ isLoading: true });
+    try {
+      const response = await apiClient('/payglocal/callback/', {
+        method: 'POST',
+        body: JSON.stringify(callbackData),
+      });
+      set({ isLoading: false });
+      return response;
+    } catch (error) {
+      console.warn("Failed to process PayGlocal callback:", error);
+      set({ isLoading: false });
+      throw error;
+    }
+  },
+
+  getPayGlocalStatus: async (orderId) => {
+    try {
+      const response = await apiClient('/payglocal/status/', {
+        method: 'POST',
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      return response;
+    } catch (error) {
+      console.warn("Failed to fetch PayGlocal status", error);
       throw error;
     }
   },

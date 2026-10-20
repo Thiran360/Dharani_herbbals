@@ -56,11 +56,11 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
   };
 
   const handleEmailSupport = () => {
-    Linking.openURL('mailto:info@vedanmart.in');
+    Linking.openURL('mailto:info@DharaniHerbbals.in');
   };
 
   const handleOpenWebsite = () => {
-    Linking.openURL('https://www.vedanmart.com');
+    Linking.openURL('https://www.DharaniHerbbals.com');
   };
 
   const renderPrivacyPolicy = () => (
@@ -69,13 +69,13 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         <ShieldCheck color="#16A34A" size={32} />
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.policyHeaderTitle}>Privacy & Data Protection Policy</Text>
-          <Text style={styles.policyHeaderSub}>Official Privacy Policy • Vedan Mart</Text>
+          <Text style={styles.policyHeaderSub}>Official Privacy Policy • Dharani Herbbals</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionHeading}>1. About Vedan Mart</Text>
+      <Text style={styles.sectionHeading}>1. About Dharani Herbbals</Text>
       <Text style={styles.paragraphText}>
-        At Vedan Mart, we value your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, and safeguard your data when you visit our website or make a purchase.
+        At Dharani Herbbals, we value your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, and safeguard your data when you visit our website or make a purchase.
       </Text>
 
       <Text style={styles.sectionHeading}>2. Customer/User Information Collection</Text>
@@ -128,7 +128,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.sectionHeading}>4. Third-Party Disclosure</Text>
       <Text style={styles.paragraphText}>
-        Vedan Mart does not sell, rent, or trade your personal information. Information is shared only when necessary with Authorized Payment Gateway Providers, Courier and Logistics Partners, Cloud Hosting & IT Providers, Communication Providers, and Government Authorities where required under applicable law.
+        Dharani Herbbals does not sell, rent, or trade your personal information. Information is shared only when necessary with Authorized Payment Gateway Providers, Courier and Logistics Partners, Cloud Hosting & IT Providers, Communication Providers, and Government Authorities where required under applicable law.
       </Text>
 
       <Text style={styles.sectionHeading}>5. Information Protection</Text>
@@ -143,7 +143,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.sectionHeading}>7. Cookies Policy</Text>
       <Text style={styles.paragraphText}>
-        Vedan Mart uses cookies to maintain secure login sessions, remember preferences, store shopping cart data, and analyze site performance.
+        Dharani Herbbals uses cookies to maintain secure login sessions, remember preferences, store shopping cart data, and analyze site performance.
       </Text>
 
       <Text style={styles.sectionHeading}>8. Data Retention</Text>
@@ -158,7 +158,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.sectionHeading}>10. Changes to this Policy</Text>
       <Text style={styles.paragraphText}>
-        Vedan Mart reserves the right to update this policy at any time. Updates will be posted on this page.
+        Dharani Herbbals reserves the right to update this policy at any time. Updates will be posted on this page.
       </Text>
 
       <Text style={styles.sectionHeading}>11. Governing Law & Jurisdiction</Text>
@@ -174,7 +174,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         <FileText color="#2563EB" size={32} />
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.policyHeaderTitle}>Terms & Conditions</Text>
-          <Text style={styles.policyHeaderSub}>Official Terms of Service • Vedan Mart</Text>
+          <Text style={styles.policyHeaderSub}>Official Terms of Service • Dharani Herbbals</Text>
         </View>
       </View>
 
@@ -207,7 +207,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.subSectionHeading}>• Intellectual Property</Text>
       <Text style={styles.paragraphText}>
-        All website content, text, images, logos, and designs are the property of Vedan Mart and may not be copied or reproduced without permission.
+        All website content, text, images, logos, and designs are the property of Dharani Herbbals and may not be copied or reproduced without permission.
       </Text>
 
       <Text style={styles.subSectionHeading}>• User Responsibilities</Text>
@@ -217,7 +217,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.subSectionHeading}>• Limitation of Liability</Text>
       <Text style={styles.paragraphText}>
-        Vedan Mart is not responsible for delays, interruptions, or losses caused by circumstances beyond our control.
+        Dharani Herbbals is not responsible for delays, interruptions, or losses caused by circumstances beyond our control.
       </Text>
 
       <Text style={styles.subSectionHeading}>• Privacy Compliance</Text>
@@ -244,7 +244,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.sectionHeading}>13. Shipping & Delivery Policy</Text>
       <Text style={styles.paragraphText}>
-        At Vedan Mart, we are committed to delivering your orders accurately, in good condition, and always on time.
+        At Dharani Herbbals, we are committed to delivering your orders accurately, in good condition, and always on time.
       </Text>
 
       <View style={styles.bulletRow}>
@@ -293,7 +293,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
 
       <Text style={styles.sectionHeading}>12. Refund Policy</Text>
       <Text style={styles.paragraphText}>
-        At Vedan Mart, customer satisfaction is important to us. Refunds or replacements will be considered only if the product received is damaged, defective, expired, or incorrect.
+        At Dharani Herbbals, customer satisfaction is important to us. Refunds or replacements will be considered only if the product received is damaged, defective, expired, or incorrect.
       </Text>
       <View style={styles.bulletRow}>
         <CheckCircle2 size={15} color="#EF4444" style={styles.bulletIcon} />
@@ -325,7 +325,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         <CheckCircle2 size={15} color="#EF4444" style={styles.bulletIcon} />
         <Text style={styles.bulletText}>
           <Text style={{ fontWeight: '800' }}>Before Dispatch: </Text>
-          You can cancel your order at any time before it has been dispatched from our warehouse by contacting info@vedanmart.in or calling +91 97881 22001 / +91 99655 32001. A full refund will be initiated to your original payment method within 5–7 business days.
+          You can cancel your order at any time before it has been dispatched from our warehouse by contacting info@DharaniHerbbals.in or calling +91 97881 22001 / +91 99655 32001. A full refund will be initiated to your original payment method within 5–7 business days.
         </Text>
       </View>
       <View style={styles.bulletRow}>
@@ -344,7 +344,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         <HelpCircle color="#9333EA" size={32} />
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.policyHeaderTitle}>Frequently Asked Questions</Text>
-          <Text style={styles.policyHeaderSub}>Official Vedan Mart Support Information</Text>
+          <Text style={styles.policyHeaderSub}>Official Dharani Herbbals Support Information</Text>
         </View>
       </View>
 
@@ -353,7 +353,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         <Text style={styles.faqContactIntro}>
           If you have any questions, concerns, or requests regarding our policies or the handling of your personal information, please contact us:
         </Text>
-        <Text style={styles.faqCompanyTitle}>Vedan Mart</Text>
+        <Text style={styles.faqCompanyTitle}>Dharani Herbbals</Text>
         
         <View style={styles.faqDetailRow}>
           <MapPin color="#D97706" size={18} style={{ marginTop: 2 }} />
@@ -376,7 +376,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
           <Text style={styles.faqDetailText}>
             <Text style={{ fontWeight: '700' }}>Email: </Text>
             <Text style={styles.linkableTextBlue} onPress={handleEmailSupport}>
-              info@vedanmart.in
+              info@DharaniHerbbals.in
             </Text>
           </Text>
         </View>
@@ -400,7 +400,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
           <Text style={styles.faqDetailText}>
             <Text style={{ fontWeight: '700' }}>Website: </Text>
             <Text style={styles.linkableTextPurple} onPress={handleOpenWebsite}>
-              https://www.vedanmart.com
+              https://www.DharaniHerbbals.com
             </Text>
           </Text>
         </View>
@@ -413,7 +413,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
       <View style={[styles.policyHeaderCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
         <Headphones color={colors.primary} size={32} />
         <View style={{ marginLeft: 12, flex: 1 }}>
-          <Text style={styles.policyHeaderTitle}>Contact Vedan Mart</Text>
+          <Text style={styles.policyHeaderTitle}>Contact Dharani Herbbals</Text>
           <Text style={styles.policyHeaderSub}>Direct Customer Support & Official Registered Office</Text>
         </View>
       </View>
@@ -446,7 +446,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         </View>
         <View style={{ flex: 1, marginLeft: 14 }}>
           <Text style={styles.contactActionTitle}>Official Support Email</Text>
-          <Text style={styles.contactActionSub}>info@vedanmart.in</Text>
+          <Text style={styles.contactActionSub}>info@DharaniHerbbals.in</Text>
         </View>
         <ChevronRight color="#94A3B8" size={20} />
       </TouchableOpacity>
@@ -457,7 +457,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         </View>
         <View style={{ flex: 1, marginLeft: 14 }}>
           <Text style={styles.contactActionTitle}>Official Website</Text>
-          <Text style={styles.contactActionSub}>https://www.vedanmart.com</Text>
+          <Text style={styles.contactActionSub}>https://www.DharaniHerbbals.com</Text>
         </View>
         <ChevronRight color="#94A3B8" size={20} />
       </TouchableOpacity>
@@ -467,7 +467,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
         <View style={{ marginLeft: 14, flex: 1 }}>
           <Text style={styles.locationTitle}>Registered Office</Text>
           <Text style={styles.locationText}>
-            Vedan Mart{"\n"}
+            Dharani Herbbals{"\n"}
             7/470, West Nehru Nagar, Punjai Puliampatti, Erode, Tamil Nadu, India - 638 459
           </Text>
           <View style={styles.founderPill}>
@@ -484,7 +484,7 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
       case 'privacy':
         return {
           title: 'Privacy Policy',
-          sub: 'Vedan Mart Data Protection & Privacy Guidelines',
+          sub: 'Dharani Herbbals Data Protection & Privacy Guidelines',
         };
       case 'terms':
         return {
@@ -509,12 +509,12 @@ export default function PolicyModal({ visible, initialPolicy = 'privacy', onClos
       case 'contact':
         return {
           title: 'Contact Us',
-          sub: 'Vedan Mart Support Team & Office',
+          sub: 'Dharani Herbbals Support Team & Office',
         };
       default:
         return {
           title: 'Legal Policy',
-          sub: 'Vedan Mart Information',
+          sub: 'Dharani Herbbals Information',
         };
     }
   };

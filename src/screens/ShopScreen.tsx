@@ -162,10 +162,6 @@ const ProductCard = React.memo(({ item, navigation, onAddToCart, onToggleWishlis
           </Text>
           
           <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-          
-          {item.tamil_name ? (
-            <Text style={styles.productTamilName} numberOfLines={1}>{item.tamil_name}</Text>
-          ) : null}
 
           {item.weight_volume && item.weight_volume !== '0' ? (
             <View style={styles.weightBadge}>

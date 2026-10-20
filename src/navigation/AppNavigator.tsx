@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { View, TouchableOpacity, StyleSheet, Text, Image, Platform } from 'react-native';
 import { Home, ShoppingBag, ShoppingCart, User, Search, Bell, Leaf } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 
 import SplashScreen from '../screens/SplashScreen';
@@ -32,6 +33,8 @@ const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
 function BottomTabs() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -54,7 +57,7 @@ function BottomTabs() {
           <View style={styles.headerLeftIcon}>
             <Image 
               source={require('../assets/images/header_logo_brand.png')} 
-              style={{ width: 155, height: 38 }} 
+              style={{ width: 170, height: 42 }} 
               resizeMode="contain" 
               fadeDuration={0}
             />
@@ -66,8 +69,8 @@ function BottomTabs() {
           backgroundColor: '#FFFFFF', // White bottom bar
           borderTopWidth: 1,
           borderColor: '#E2E8F0',
-          height: 70,
-          paddingBottom: 10,
+          height: 60 + Math.max(insets.bottom, 10),
+          paddingBottom: Math.max(insets.bottom, 10),
           paddingTop: 10,
         },
         tabBarShowLabel: false,

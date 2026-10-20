@@ -312,7 +312,7 @@ export default function AddressModal({ visible, onClose, onSelectAddress }: Addr
 
       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`, {
         headers: {
-          'User-Agent': 'VedanMartApp/1.0',
+          'User-Agent': 'DharaniHerbbalsApp/1.0',
           'Accept': 'application/json',
         }
       });

@@ -1,10 +1,9 @@
 export const BASE_URL = 'https://api.codingboss.in/herbal';
-export const FALLBACK_BASE_URL = 'https://viral-motto-customs.ngrok-free.dev/herbal';
 
 export const apiClient = async (endpoint: string, options: RequestInit = {}) => {
   const primaryUrl = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
   
-  const headers: Record<string, string> = {
+  const headers: Record<string, string> = { 
     'Content-Type': 'application/json',
     'Cache-Control': 'no-store',
     'ngrok-skip-browser-warning': 'true',
@@ -47,20 +46,6 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
       } catch (_) {}
     }
 
-    if (!endpoint.startsWith('http')) {
-      const fallbackUrl = `${FALLBACK_BASE_URL}${endpoint}`;
-      try {
-        return await doFetch(fallbackUrl);
-      } catch (fallbackErr: any) {
-        if ((fallbackErr?.status === 401 || fallbackErr?.status === 403) && headers.Authorization) {
-          const publicHeaders = { ...headers };
-          delete publicHeaders.Authorization;
-          try {
-            return await doFetch(fallbackUrl, publicHeaders);
-          } catch (_) {}
-        }
-      }
-    }
     throw primaryErr;
   }
 };

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, 
   Dimensions, StatusBar, Animated, Platform, FlatList, Modal 
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { ShoppingCart, Star, Heart, ArrowLeft, ShieldCheck, Truck, Leaf, Sparkles, X, ChevronRight } from 'lucide-react-native';
 import { colors } from '../theme/colors';
@@ -15,10 +16,12 @@ import { getImageUrl } from '../utils/imageUrl';
 
 const { width, height } = Dimensions.get('window');
 
-const HEADER_HEIGHT = Platform.OS === 'ios' ? 90 : 70;
 const IMAGE_HEIGHT = height * 0.65; // Massive edge-to-edge image
 
 export default function ProductDetailsScreen() {
+  const insets = useSafeAreaInsets();
+  const HEADER_HEIGHT = Platform.OS === 'ios' ? 50 + insets.top : 60 + insets.top;
+
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
   const { product } = route.params;
@@ -135,8 +138,8 @@ export default function ProductDetailsScreen() {
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       {/* Dynamic Header */}
-      <Animated.View style={[styles.headerBg, { opacity: headerOpacity }]} />
-      <View style={styles.floatingHeader}>
+      <Animated.View style={[styles.headerBg, { opacity: headerOpacity, height: HEADER_HEIGHT }]} />
+      <View style={[styles.floatingHeader, { top: Platform.OS === 'ios' ? insets.top + 10 : insets.top + 15 }]}>
         <TouchableOpacity style={styles.glassIconBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <ArrowLeft color="#1E293B" size={24} strokeWidth={2.5} />
         </TouchableOpacity>
@@ -241,10 +244,6 @@ export default function ProductDetailsScreen() {
               </View>
 
               <Text style={styles.productName}>{product.name}</Text>
-              
-              {product.tamil_name ? (
-                <Text style={styles.productTamilSubtitle}>{product.tamil_name}</Text>
-              ) : null}
             </View>
             <Animated.View style={{ transform: [{ scale: heartScaleAnim }] }}>
               <TouchableOpacity style={styles.wishlistCircle} onPress={toggleWishlist} activeOpacity={0.7}>
@@ -403,7 +402,6 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: HEADER_HEIGHT,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     zIndex: 9,
     borderBottomWidth: 1,
@@ -411,7 +409,6 @@ const styles = StyleSheet.create({
   },
   floatingHeader: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 35,
     left: 0,
     right: 0,
     flexDirection: 'row',

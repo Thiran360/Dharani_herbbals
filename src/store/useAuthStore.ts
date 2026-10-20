@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>()(
               const backendName = custData.name && custData.name !== 'User' && custData.name !== 'Guest User' ? custData.name : '';
               const finalName = hasCustomName ? currentName : (backendName || 'User');
 
-              const isRealEmail = (e: string) => e && e.includes('@') && !e.includes('@user.com') && e !== 'user@vedanmart.com';
+              const isRealEmail = (e: string) => e && e.includes('@') && !e.includes('@user.com') && e !== 'user@DharaniHerbbals.com';
               const currentEmail = state.user?.email || '';
               const hasCustomEmail = isRealEmail(currentEmail);
               const backendEmail = isRealEmail(custData.email) ? custData.email : '';
@@ -286,7 +286,7 @@ export const useAuthStore = create<AuthState>()(
         useCartStore.getState().resetCart();
         const existingEmail = get().user?.email || '';
         const candidateEmail = userData.email || info?.email || existingEmail || '';
-        const cleanEmail = (candidateEmail.includes('@user.com') || candidateEmail === 'user@vedanmart.com') ? (info?.email || existingEmail || '') : candidateEmail;
+        const cleanEmail = (candidateEmail.includes('@user.com') || candidateEmail === 'user@DharaniHerbbals.com') ? (info?.email || existingEmail || '') : candidateEmail;
 
         set({
           isAuthenticated: true,

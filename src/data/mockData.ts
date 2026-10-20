@@ -5,8 +5,8 @@ export const BRANDS = [
   { id: '2', name: 'RAMCARE' },
   { id: '3', name: 'DIVYAM' },
   { id: '4', name: 'VANA ARASI' },
-  { id: '5', name: 'VEDAN AMUTHU' },
-  { id: '6', name: 'VEDAN' },
+  { id: '5', name: 'DHARANI AMUTHU' },
+  { id: '6', name: 'DHARANI' },
 ];
 
 export const MOCK_PRODUCTS: Product[] = [
@@ -52,7 +52,7 @@ export const MOCK_PRODUCTS: Product[] = [
     price: 350,
     image: 'https://via.placeholder.com/150',
     category: 'Health',
-    brand: 'VEDAN AMUTHU',
+    brand: 'DHARANI AMUTHU',
     description: 'Refreshing and healthy green tea.',
   },
   {
@@ -61,7 +61,7 @@ export const MOCK_PRODUCTS: Product[] = [
     price: 450,
     image: 'https://via.placeholder.com/150',
     category: 'Skin Care',
-    brand: 'VEDAN',
+    brand: 'DHARANI',
     description: 'Face pack for natural glow.',
   },
 ];

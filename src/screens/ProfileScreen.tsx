@@ -49,7 +49,7 @@ export default function ProfileScreen() {
     const rawEmail = (userObj.email || '').trim();
     if (!rawEmail) return '';
     const lower = rawEmail.toLowerCase();
-    if (lower.includes('guest') || lower.includes('@user.com') || lower === 'user@vedanmart.com') {
+    if (lower.includes('guest') || lower.includes('@user.com') || lower === 'user@DharaniHerbbals.com') {
       return '';
     }
     return rawEmail;
@@ -84,7 +84,7 @@ export default function ProfileScreen() {
           <View style={styles.guestIconCircle}>
             <User size={56} color={colors.primary} />
           </View>
-          <Text style={styles.guestTitle}>Welcome to Vedan Mart</Text>
+          <Text style={styles.guestTitle}>Welcome to Dharani Herbbals</Text>
           <Text style={styles.guestSubtitle}>Sign in to view your verified profile, track orders, and manage shipping addresses.</Text>
           <TouchableOpacity 
             style={styles.loginBtn}
@@ -270,13 +270,13 @@ export default function ProfileScreen() {
             <TouchableOpacity 
               style={styles.menuItem}
               activeOpacity={0.7}
-              onPress={() => Linking.openURL('mailto:info@vedanmart.in')}
+              onPress={() => Linking.openURL('mailto:info@DharaniHerbbals.in')}
             >
               <View style={[styles.menuIconContainer, { backgroundColor: 'rgba(15, 23, 42, 0.1)' }]}>
                 <Mail color="#0F172A" size={22} />
               </View>
               <View style={styles.menuTextContainer}>
-                <Text style={styles.menuTitle}>info@vedanmart.in</Text>
+                <Text style={styles.menuTitle}>info@DharaniHerbbals.in</Text>
                 <Text style={styles.menuSubtitle}>Email us anytime</Text>
               </View>
               <ChevronRight color="#CBD5E1" size={20} />
@@ -285,7 +285,7 @@ export default function ProfileScreen() {
 
           {/* Footer info */}
           <View style={styles.footerInfo}>
-            <Text style={styles.footerText}>© 2026 Vedan Mart. All rights reserved.</Text>
+            <Text style={styles.footerText}>© 2026 Dharani Herbbals. All rights reserved.</Text>
             <Text style={styles.footerText}>Managed by ARUMUGAM POONKODI</Text>
             <Text style={styles.footerText}>Developed by ThinkAside</Text>
           </View>

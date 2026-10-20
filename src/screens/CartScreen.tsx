@@ -140,6 +140,8 @@ export default function CartScreen() {
   const checkout = useCartStore((s) => s.checkout);
   const createPaytmOrder = useCartStore((s) => s.createPaytmOrder);
   const verifyPaytmCallback = useCartStore((s) => s.verifyPaytmCallback);
+  const createPayGlocalOrder = useCartStore((s) => s.createPayGlocalOrder);
+  const verifyPayGlocalCallback = useCartStore((s) => s.verifyPayGlocalCallback);
   const clearCart = useCartStore((s) => s.clearCart);
   const productTotal = useCartStore((s) => s.productTotal);
   const deliveryCharge = useCartStore((s) => s.deliveryCharge);
@@ -160,6 +162,11 @@ export default function CartScreen() {
   const [paytmWebViewUrl, setPaytmWebViewUrl] = useState<any>(null);
   const [paytmDirectUrl, setPaytmDirectUrl] = useState<string>('');
   const [showPaytmWebView, setShowPaytmWebView] = useState(false);
+  
+  const [payglocalWebViewUrl, setPayglocalWebViewUrl] = useState<any>(null);
+  const [showPayglocalWebView, setShowPayglocalWebView] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<any>(null);
+
 
   // Screen mode: false = My Cart List, true = Checkout Stepper
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -171,7 +178,7 @@ export default function CartScreen() {
   const isRealUserEmail = (emailVal: string) => {
     if (!emailVal) return false;
     const lower = emailVal.toLowerCase().trim();
-    return !lower.includes('@user.com') && lower !== 'user@vedanmart.com' && !lower.includes('guest');
+    return !lower.includes('@user.com') && lower !== 'user@DharaniHerbbals.com' && !lower.includes('guest');
   };
 
   const getValidProfileName = (userObj: any): string => {
@@ -219,7 +226,7 @@ export default function CartScreen() {
   const [locationSuccessMsg, setLocationSuccessMsg] = useState('');
 
   // Payment Method State
-  const [paymentMethod, setPaymentMethod] = useState<'paytm' | 'upi' | 'cod'>('paytm');
+  const [paymentMethod, setPaymentMethod] = useState<'payglocal' | 'paytm' | 'upi' | 'cod'>('payglocal');
 
   const fetchShippingRules = useShippingStore((state) => state.fetchShippingRules);
   const calculateShipping = useShippingStore((state) => state.calculateShipping);
@@ -241,7 +248,7 @@ export default function CartScreen() {
   }, [subtotal, activeState, activeAddr, calculateShipping]);
 
   const currentDeliveryCharge = shippingInfo.shippingFee;
-  const finalTotal = subtotal + currentDeliveryCharge + taxTotal;
+  const finalTotal = subtotal + currentDeliveryCharge;
 
   useEffect(() => {
     fetchShippingRules();
@@ -392,7 +399,7 @@ export default function CartScreen() {
         const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
         const res1 = await fetch(url, {
           headers: {
-            'User-Agent': 'VedanMartApp/1.0',
+            'User-Agent': 'DharaniHerbbalsApp/1.0',
             'Accept': 'application/json',
           }
         });
@@ -469,7 +476,7 @@ export default function CartScreen() {
 
     // Auto-fill fallback email if missing or invalid
     if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      trimmedEmail = `${cleanPhone}@vedanmart.com`;
+      trimmedEmail = `${cleanPhone}@DharaniHerbbals.com`;
       setContactEmail(trimmedEmail);
     }
     setEmailError('');
@@ -700,6 +707,7 @@ export default function CartScreen() {
 
       const finalOrderId = checkoutRes?.order_id || checkoutRes?.id || checkoutRes?.data?.order_id || checkoutRes?.pk || generatedOrderId;
       const dbId = checkoutRes?.id || checkoutRes?.data?.id || checkoutRes?.pk || checkoutRes?.order_id || finalOrderId;
+      setCurrentOrderId(finalOrderId);
 
       const finalPayload = {
         ...checkoutPayload,
@@ -711,88 +719,125 @@ export default function CartScreen() {
         order_pk: dbId,
       };
 
-      // 2. Fetch /create-paytm-order/
-      let paytmResponse: any = null;
-      try {
-        paytmResponse = await createPaytmOrder(targetUserId, finalTotal, finalPayload);
-      } catch (errPayload: any) {
-        paytmResponse = errPayload;
-      }
+      // Check for privileged roles to bypass payment
+      const userRole = (user?.role || '').toLowerCase();
+      const isPrivilegedUser = ['retailer', 'reseller', 'staff'].includes(userRole);
 
-      const txnToken = paytmResponse?.txnToken || paytmResponse?.token || paytmResponse?.body?.txnToken || paytmResponse?.paytm_response?.body?.txnToken || '';
-      const activePaytmOrderId = paytmResponse?.paytm_order_id || paytmResponse?.order_id || paytmResponse?.ORDER_ID || finalOrderId;
-      const paytmAmount = paytmResponse?.amount ? String(paytmResponse.amount) : String(finalTotal);
-      const mid = paytmResponse?.mid || 'YyffBp11837369316995';
-
-      if (!txnToken || paytmResponse?.success === false) {
-        const errorMsg = paytmResponse?.message || paytmResponse?.error || 'Unable to connect to Paytm server.';
-        Alert.alert(
-          'Paytm Server Connection Notice',
-          `The server experienced a temporary network timeout connecting to Paytm.\n\nDetail: ${errorMsg}\n\nPlease tap Retry to try generating the Paytm token again.`,
-          [
-            { text: 'Retry', onPress: () => handleCheckout() },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
+      if (isPrivilegedUser) {
+        // Skip payment gateway, directly complete order
+        clearCart(user?.id);
+        setShowCheckoutSuccess(true);
         return;
       }
 
-      const isStaging = paytmResponse?.environment === 'staging' || paytmResponse?.is_stage;
-      const paytmHost = paytmResponse?.host || paytmResponse?.paytm_host || (isStaging ? 'securegw-stage.paytm.in' : 'secure.paytmpayments.com');
+      // 2. Fetch /payglocal/create/ First, with Automatic Fallback to Paytm
+      let payglocalFailed = false;
+      
+      try {
+        const payglocalResponse = await createPayGlocalOrder(targetUserId, finalTotal, finalPayload);
+        const paygData = payglocalResponse?.response?.data || payglocalResponse?.data || payglocalResponse;
+        const redirectUrl = paygData?.redirectUrl || paygData?.redirect_url;
+        const htmlContent = paygData?.html;
 
-      if (paytmResponse?.html) {
-        setPaytmWebViewUrl({ html: paytmResponse.html, baseUrl: `https://${paytmHost}` });
-      } else if (paytmResponse?.redirect_url && !paytmResponse.redirect_url.includes('/showPaymentPage')) {
-        setPaytmWebViewUrl({ uri: paytmResponse.redirect_url });
-      } else {
-        const paytmFormHtml = `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <title>Paytm Payment Gateway</title>
-              <style>
-                body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #FAFCFC; color: #0F172A; text-align: center; padding: 20px; box-sizing: border-box; }
-                .loader { width: 44px; height: 44px; border: 4px solid #E2E8F0; border-top: 4px solid #10B981; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
-                @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                h3 { font-size: 18px; margin: 0 0 8px 0; font-weight: 800; }
-                p { font-size: 13px; color: #64748B; margin: 0; }
-              </style>
-            </head>
-            <body>
-              <div class="loader"></div>
-              <h3>Connecting to Paytm Gateway...</h3>
-              <p>Please wait, redirecting securely to Paytm payment page.</p>
-              
-              <!-- Standard POST Form Redirect -->
-              <form id="paytmAutoForm" method="post" action="https://${paytmHost}/theia/api/v1/showPaymentPage?mid=${encodeURIComponent(mid)}&orderId=${encodeURIComponent(activePaytmOrderId)}">
-                <input type="hidden" name="mid" value="${mid}" />
-                <input type="hidden" name="orderId" value="${activePaytmOrderId}" />
-                <input type="hidden" name="txnToken" value="${txnToken}" />
-              </form>
-              
-              <script type="text/javascript">
-                // Instantly submit the form, forcing the WebView to navigate to the Paytm Checkout Page
-                document.getElementById('paytmAutoForm').submit();
-              </script>
-            </body>
-          </html>
-        `;
-        setPaytmWebViewUrl({ html: paytmFormHtml, baseUrl: 'https://api.codingboss.in' });
-        const directPaymentUrl = `https://${paytmHost}/theia/api/v1/showPaymentPage?mid=${encodeURIComponent(mid)}&orderId=${encodeURIComponent(activePaytmOrderId)}&txnToken=${encodeURIComponent(txnToken)}`;
-        const fallbackUrl = paytmResponse?.web_url || paytmResponse?.paytm_url || paytmResponse?.redirect_url || directPaymentUrl;
-        setPaytmDirectUrl(fallbackUrl);
+        if (payglocalResponse && payglocalResponse.success !== false && (htmlContent || redirectUrl)) {
+          if (htmlContent) {
+            setPayglocalWebViewUrl({ html: htmlContent, baseUrl: 'https://api.codingboss.in' });
+          } else if (redirectUrl) {
+            setPayglocalWebViewUrl({ uri: redirectUrl });
+          }
+          if (WebView) {
+            setShowPayglocalWebView(true);
+          } else {
+            try {
+              await Linking.openURL(redirectUrl);
+            } catch (err) {}
+          }
+        } else {
+          payglocalFailed = true;
+        }
+      } catch (err) {
+        payglocalFailed = true;
       }
 
-      if (WebView) {
-        setShowPaytmWebView(true);
-      } else {
-        const directPaymentUrl = `https://${paytmHost}/theia/api/v1/showPaymentPage?mid=${encodeURIComponent(mid)}&orderId=${encodeURIComponent(activePaytmOrderId)}&txnToken=${encodeURIComponent(txnToken)}`;
-        const fallbackUrl = paytmResponse?.web_url || paytmResponse?.paytm_url || paytmResponse?.redirect_url || directPaymentUrl;
+      if (payglocalFailed) {
+        // 2b. Fallback: Fetch /create-paytm-order/
+        let paytmResponse: any = null;
         try {
-          await Linking.openURL(fallbackUrl);
-        } catch (err) {
-          console.warn('Could not launch external browser URL:', err);
+          paytmResponse = await createPaytmOrder(targetUserId, finalTotal, finalPayload);
+        } catch (errPayload: any) {
+          paytmResponse = errPayload;
+        }
+  
+        const txnToken = paytmResponse?.txnToken || paytmResponse?.token || paytmResponse?.body?.txnToken || paytmResponse?.paytm_response?.body?.txnToken || '';
+        const activePaytmOrderId = paytmResponse?.paytm_order_id || paytmResponse?.order_id || paytmResponse?.ORDER_ID || finalOrderId;
+        const mid = paytmResponse?.mid || 'YyffBp11837369316995';
+  
+        if (!txnToken || paytmResponse?.success === false) {
+          const errorMsg = paytmResponse?.message || paytmResponse?.error || 'Unable to connect to payment servers.';
+          Alert.alert(
+            'Payment Servers Offline',
+            `Both PayGlocal and Paytm servers experienced a timeout.\n\nDetail: ${errorMsg}\n\nPlease tap Retry to try again.`,
+            [
+              { text: 'Retry', onPress: () => handleCheckout() },
+              { text: 'Cancel', style: 'cancel' }
+            ]
+          );
+          return;
+        }
+  
+        const isStaging = paytmResponse?.environment === 'staging' || paytmResponse?.is_stage;
+        const paytmHost = paytmResponse?.host || paytmResponse?.paytm_host || (isStaging ? 'securegw-stage.paytm.in' : 'secure.paytmpayments.com');
+  
+        if (paytmResponse?.html) {
+          setPaytmWebViewUrl({ html: paytmResponse.html, baseUrl: `https://${paytmHost}` });
+        } else if (paytmResponse?.redirect_url && !paytmResponse.redirect_url.includes('/showPaymentPage')) {
+          setPaytmWebViewUrl({ uri: paytmResponse.redirect_url });
+        } else {
+          const paytmFormHtml = `
+            <!DOCTYPE html>
+            <html>
+              <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                <title>Paytm Payment Gateway</title>
+                <style>
+                  body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #FAFCFC; color: #0F172A; text-align: center; padding: 20px; box-sizing: border-box; }
+                  .loader { width: 44px; height: 44px; border: 4px solid #E2E8F0; border-top: 4px solid #10B981; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
+                  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                  h3 { font-size: 18px; margin: 0 0 8px 0; font-weight: 800; }
+                  p { font-size: 13px; color: #64748B; margin: 0; }
+                </style>
+              </head>
+              <body>
+                <div class="loader"></div>
+                <h3>Connecting to Backup Gateway (Paytm)...</h3>
+                <p>Please wait, redirecting securely to Paytm payment page.</p>
+                <form id="paytmAutoForm" method="post" action="https://${paytmHost}/theia/api/v1/showPaymentPage?mid=${encodeURIComponent(mid)}&orderId=${encodeURIComponent(activePaytmOrderId)}">
+                  <input type="hidden" name="mid" value="${mid}" />
+                  <input type="hidden" name="orderId" value="${activePaytmOrderId}" />
+                  <input type="hidden" name="txnToken" value="${txnToken}" />
+                </form>
+                <script type="text/javascript">
+                  document.getElementById('paytmAutoForm').submit();
+                </script>
+              </body>
+            </html>
+          `;
+          setPaytmWebViewUrl({ html: paytmFormHtml, baseUrl: 'https://api.codingboss.in' });
+          const directPaymentUrl = `https://${paytmHost}/theia/api/v1/showPaymentPage?mid=${encodeURIComponent(mid)}&orderId=${encodeURIComponent(activePaytmOrderId)}&txnToken=${encodeURIComponent(txnToken)}`;
+          const fallbackUrl = paytmResponse?.web_url || paytmResponse?.paytm_url || paytmResponse?.redirect_url || directPaymentUrl;
+          setPaytmDirectUrl(fallbackUrl);
+        }
+  
+        if (WebView) {
+          setShowPaytmWebView(true);
+        } else {
+          const directPaymentUrl = `https://${paytmHost}/theia/api/v1/showPaymentPage?mid=${encodeURIComponent(mid)}&orderId=${encodeURIComponent(activePaytmOrderId)}&txnToken=${encodeURIComponent(txnToken)}`;
+          const fallbackUrl = paytmResponse?.web_url || paytmResponse?.paytm_url || paytmResponse?.redirect_url || directPaymentUrl;
+          try {
+            await Linking.openURL(fallbackUrl);
+          } catch (err) {
+            console.warn('Could not launch external browser URL:', err);
+          }
         }
       }
     } catch (e: any) {
@@ -897,7 +942,7 @@ export default function CartScreen() {
       <View style={styles.guestIconCircle}>
         <User size={56} color="#16A34A" />
       </View>
-      <Text style={styles.guestTitle}>Welcome to Vedan Mart</Text>
+      <Text style={styles.guestTitle}>Welcome to Dharani Herbbals</Text>
       <Text style={styles.guestSubtitle}>
         Sign in to view your cart, track orders, and manage shipping addresses.
       </Text>
@@ -1348,12 +1393,12 @@ export default function CartScreen() {
           <Text style={styles.stepSectionTitle}>Payment Method</Text>
         </View>
       </View>
-      <Text style={styles.stepSectionSub}>Pay securely via Paytm Payment Gateway.</Text>
+      <Text style={styles.stepSectionSub}>Pay securely via PayGlocal Payment Gateway.</Text>
 
-      {/* Paytm Exclusive Option */}
+      {/* PayGlocal Exclusive Option */}
       <TouchableOpacity 
         style={[styles.paymentMethodCard, styles.paymentMethodCardSelected]}
-        onPress={() => setPaymentMethod('paytm')}
+        onPress={() => setPaymentMethod('payglocal')}
         activeOpacity={0.9}
       >
         <View style={styles.paymentRadio}>
@@ -1361,8 +1406,8 @@ export default function CartScreen() {
         </View>
         <CreditCard size={22} color={colors.primary} />
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.paymentMethodTitle}>Paytm (UPI, Cards, NetBanking, Wallet)</Text>
-          <Text style={styles.paymentMethodSub}>100% Secure Instant Payment via Paytm</Text>
+          <Text style={styles.paymentMethodTitle}>PayGlocal (Credit/Debit, NetBanking)</Text>
+          <Text style={styles.paymentMethodSub}>100% Secure Instant Payment via PayGlocal</Text>
         </View>
       </TouchableOpacity>
 
@@ -1377,9 +1422,9 @@ export default function CartScreen() {
           <ActivityIndicator color="#FFFFFF" size="small" />
         ) : (
           <>
-            <Text style={styles.primaryActionButtonText}>
-              Pay ₹{(deliveryCharge === 0 && grandTotal === subtotal ? subtotal + 50 : finalTotal).toFixed(0)} & Place Order
-            </Text>
+              <Text style={styles.primaryActionButtonText}>
+                Pay ₹{finalTotal.toFixed(0)} & Place Order
+              </Text>
             <ShieldCheck size={18} color="#FFFFFF" />
           </>
         )}
@@ -1417,7 +1462,7 @@ export default function CartScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {!isAuthenticated ? (
-          /* Guest View: Welcome to Vedan Mart / Login prompt */
+          /* Guest View: Welcome to Dharani Herbbals / Login prompt */
           renderGuestLoginPrompt()
         ) : items.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -1631,8 +1676,137 @@ export default function CartScreen() {
                 const url = navState.url;
                 if (url.includes('/paytm/callback') || url.includes('/callback') || url.includes('TXN_SUCCESS') || url.includes('success')) {
                   setShowPaytmWebView(false);
-                  clearCart(user?.id);
-                  setShowCheckoutSuccess(true);
+                  
+                  let isSuccess = false;
+                  if (url.includes('TXN_SUCCESS') || url.includes('success=true') || url.includes('status=SUCCESS')) {
+                    isSuccess = true;
+                  } else if (currentOrderId) {
+                    try {
+                      const statusRes = await useCartStore.getState().getPaytmStatus(currentOrderId);
+                      const status = statusRes?.STATUS || statusRes?.status || statusRes?.data?.STATUS || statusRes?.data?.status;
+                      if (status === 'TXN_SUCCESS' || status === 'SUCCESS' || status === 'COMPLETED') {
+                        isSuccess = true;
+                      }
+                    } catch (e) {}
+                  }
+
+                  if (isSuccess) {
+                    clearCart(user?.id);
+                    setShowCheckoutSuccess(true);
+                  } else {
+                    Alert.alert('Payment Notice', 'Your payment is pending or failed. Please check your order history for updates.');
+                  }
+                }
+              }}
+            />
+          )}
+        </SafeAreaView>
+      </Modal>
+
+      {/* PayGlocal Gateway WebView Modal */}
+      <Modal
+        visible={showPayglocalWebView}
+        animationType="slide"
+        onRequestClose={() => setShowPayglocalWebView(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#F8FAFC' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ShieldCheck size={20} color={colors.primary} />
+              <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>PayGlocal Payment Gateway</Text>
+            </View>
+            <TouchableOpacity 
+              onPress={() => setShowPayglocalWebView(false)}
+              style={{ padding: 4 }}
+              activeOpacity={0.8}
+            >
+              <X size={24} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+          {showPayglocalWebView && WebView && payglocalWebViewUrl && (
+            <WebView
+              source={typeof payglocalWebViewUrl === 'object' ? payglocalWebViewUrl : { uri: payglocalWebViewUrl }}
+              style={{ flex: 1 }}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={true}
+              thirdPartyCookiesEnabled={true}
+              sharedCookiesEnabled={true}
+              userAgent="Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              allowUniversalAccessFromFileURLs={true}
+              renderLoading={() => (
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' }}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={{ marginTop: 12, fontSize: 14, color: '#64748B', fontWeight: '500' }}>Connecting to PayGlocal Gateway...</Text>
+                </View>
+              )}
+              renderError={() => (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: '#FFFFFF' }}>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: '#FEF2F2', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <X size={32} color="#EF4444" />
+                  </View>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 8, textAlign: 'center' }}>
+                    PayGlocal Connection Error
+                  </Text>
+                  <Text style={{ fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24, maxWidth: 280 }}>
+                    Unable to connect to the PayGlocal server. Please check network connection or retry.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowPayglocalWebView(false);
+                      handleCheckout();
+                    }}
+                    style={{ backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 16, width: '100%', alignItems: 'center' }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 15 }}>Retry Checkout</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              onShouldStartLoadWithRequest={(request: any) => {
+                const url = request.url || '';
+                if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('about:') && !url.startsWith('data:')) {
+                  try {
+                    Linking.openURL(url).catch(() => {});
+                  } catch (_) {}
+                  return false;
+                }
+                return true;
+              }}
+              onError={(syntheticEvent: any) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView error: ', nativeEvent);
+              }}
+              onHttpError={(syntheticEvent: any) => {
+                const { nativeEvent } = syntheticEvent;
+                console.warn('WebView HTTP error: ', nativeEvent);
+              }}
+              onNavigationStateChange={async (navState: any) => {
+                const url = navState.url;
+                if (url.includes('/payglocal/callback') || url.includes('/callback') || url.includes('success')) {
+                  setShowPayglocalWebView(false);
+                  
+                  let isSuccess = false;
+                  if (url.includes('status=SUCCESS') || url.includes('success=true') || url.includes('TXN_SUCCESS')) {
+                    isSuccess = true;
+                  } else if (currentOrderId) {
+                    try {
+                      const statusRes = await useCartStore.getState().getPayGlocalStatus(currentOrderId);
+                      const status = statusRes?.status || statusRes?.data?.status || statusRes?.STATUS || statusRes?.response?.status;
+                      if (status === 'SUCCESS' || status === 'COMPLETED' || status === 'TXN_SUCCESS' || status === 'SENT_FOR_CAPTURE') {
+                        isSuccess = true;
+                      }
+                    } catch (e) {}
+                  }
+
+                  if (isSuccess) {
+                    clearCart(user?.id);
+                    setShowCheckoutSuccess(true);
+                  } else {
+                    Alert.alert('Payment Notice', 'Your payment is pending or failed. Please check your order history for updates.');
+                  }
                 }
               }}
             />
@@ -2436,3 +2610,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+

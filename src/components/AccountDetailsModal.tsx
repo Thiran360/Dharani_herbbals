@@ -66,7 +66,7 @@ export default function AccountDetailsModal({ visible, onClose }: AccountDetails
     return 8; // Default fallback
   };
 
-  const isRealEmail = (e: string) => Boolean(e && e.includes('@') && !e.includes('@user.com') && e !== 'user@vedanmart.com');
+  const isRealEmail = (e: string) => Boolean(e && e.includes('@') && !e.includes('@user.com') && e !== 'user@DharaniHerbbals.com');
 
   const fetchCustomerDetails = async () => {
     setIsLoading(true);
